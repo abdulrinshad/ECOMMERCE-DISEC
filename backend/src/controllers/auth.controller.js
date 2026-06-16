@@ -7,6 +7,8 @@ import {
   generateRefreshToken,
   setRefreshTokenCookie
 } from '../utils/generateTokens.js'
+import { generateOTP, hashOTP, compareOTP } from '../utils/otp.js'
+import { sendOTPEmail } from '../utils/sendEmail.js'
 
 /**
  * Register User
@@ -19,7 +21,12 @@ export const register = async (req, res, next) => {
     // Check if email already exists
     const existingUser = await User.findOne({ email })
     if (existingUser) {
-      return next(new ApiError(409, 'Email already registered'))
+      if (existingUser.isVerified) {
+        return next(new ApiError(409, 'An account with this email already exists'))
+      } else {
+        // DELETE old unverified record (allow retry), proceed
+        await User.deleteOne({ _id: existingUser._id })
+      }
     }
 
     // Create User
@@ -29,30 +36,23 @@ export const register = async (req, res, next) => {
       password
     })
 
-    // Generate tokens
-    const accessToken = generateAccessToken(user._id, user.role)
-    const refreshToken = generateRefreshToken(user._id)
-
-    // Hash refresh token to store in DB
-    const salt = await bcrypt.genSalt(10)
-    user.refreshToken = await bcrypt.hash(refreshToken, salt)
+    // Generate OTP -> hash it -> save otp + otpExpires (Date.now() + 10*60*1000)
+    const plainOtp = generateOTP()
+    const hashed = await hashOTP(plainOtp)
+    user.otp = hashed
+    user.otpExpires = new Date(Date.now() + 10 * 60 * 1000)
+    user.otpAttempts = 0
+    user.otpLockedUntil = null
 
     await user.save()
 
-    // Send HTTP-Only Cookie
-    setRefreshTokenCookie(res, refreshToken)
-
-    const userResponse = {
-      id: user._id,
-      fullName: user.fullName,
-      email: user.email,
-      role: user.role,
-      memberLevel: user.memberLevel,
-      createdAt: user.createdAt
-    }
+    // Send OTP email (async, don't block response)
+    sendOTPEmail(user.email, user.fullName, plainOtp).catch((err) => {
+      console.error('Failed to send OTP email during registration:', err)
+    })
 
     return res.status(201).json(
-      new ApiResponse(201, { user: userResponse, accessToken }, 'User registered successfully')
+      new ApiResponse(201, { email: user.email }, 'Verification code sent to your email')
     )
   } catch (error) {
     next(error)
@@ -67,17 +67,37 @@ export const login = async (req, res, next) => {
   try {
     const { email, password } = req.body
 
-    // Find user (explicitly selecting password and refreshToken)
     const user = await User.findOne({ email }).select('+password +refreshToken')
     if (!user) {
       return next(new ApiError(401, 'Invalid credentials'))
     }
 
+    // Check account lockout
+    if (user.loginLockUntil && user.loginLockUntil > Date.now()) {
+      const remainingMinutes = Math.ceil((user.loginLockUntil - Date.now()) / (60 * 1000))
+      return next(new ApiError(429, `Too many failed attempts. Try again in ${remainingMinutes} minutes`))
+    }
+
+    // Check verification status
+    if (user.isVerified === false) {
+      return next(new ApiError(403, 'Please verify your email before logging in'))
+    }
+
     // Compare passwords
     const isPasswordMatch = await user.comparePassword(password)
     if (!isPasswordMatch) {
+      user.failedLoginAttempts += 1
+      if (user.failedLoginAttempts >= 5) {
+        user.loginLockUntil = new Date(Date.now() + 15 * 60 * 1000)
+        user.failedLoginAttempts = 0
+      }
+      await user.save()
       return next(new ApiError(401, 'Invalid credentials'))
     }
+
+    // Reset failed login attempts on success
+    user.failedLoginAttempts = 0
+    user.loginLockUntil = null
 
     // Generate tokens
     const accessToken = generateAccessToken(user._id, user.role)
@@ -102,6 +122,104 @@ export const login = async (req, res, next) => {
 
     return res.status(200).json(
       new ApiResponse(200, { user: userResponse, accessToken }, 'Logged in successfully')
+    )
+  } catch (error) {
+    next(error)
+  }
+}
+
+/**
+ * Verify OTP
+ * POST /api/auth/verify-otp
+ */
+export const verifyOTP = async (req, res, next) => {
+  try {
+    const { email, otp } = req.body
+
+    const user = await User.findOne({ email: email.toLowerCase().trim() }).select('+otp')
+    if (!user) {
+      return next(new ApiError(400, 'Invalid or expired verification code'))
+    }
+
+    if (user.isVerified) {
+      return next(new ApiError(400, 'Account already verified'))
+    }
+
+    // Check lockout
+    if (user.otpLockedUntil && user.otpLockedUntil > Date.now()) {
+      const remainingMinutes = Math.ceil((user.otpLockedUntil - Date.now()) / (60 * 1000))
+      return next(new ApiError(429, `Too many attempts. Try again in ${remainingMinutes} minutes`))
+    }
+
+    // Check otpExpires
+    if (!user.otpExpires || Date.now() > user.otpExpires) {
+      return next(new ApiError(400, 'Verification code expired. Please request a new one'))
+    }
+
+    // Compare OTP
+    const isMatch = await compareOTP(otp, user.otp)
+    if (!isMatch) {
+      user.otpAttempts += 1
+      if (user.otpAttempts >= 5) {
+        user.otpLockedUntil = new Date(Date.now() + 15 * 60 * 1000)
+        user.otpAttempts = 0
+      }
+      await user.save()
+      return next(new ApiError(400, 'Invalid or expired verification code'))
+    }
+
+    // Correct
+    user.isVerified = true
+    user.otp = null
+    user.otpExpires = null
+    user.otpAttempts = 0
+    user.otpLockedUntil = null
+    await user.save()
+
+    return res.status(200).json(
+      new ApiResponse(200, { email: user.email }, 'Email verified successfully. Please log in.')
+    )
+  } catch (error) {
+    next(error)
+  }
+}
+
+/**
+ * Resend OTP
+ * POST /api/auth/resend-otp
+ */
+export const resendOTP = async (req, res, next) => {
+  try {
+    const { email } = req.body
+    const normalizedEmail = email.toLowerCase().trim()
+
+    const user = await User.findOne({ email: normalizedEmail })
+    if (!user || user.isVerified) {
+      return res.status(200).json(
+        new ApiResponse(200, null, 'If an account exists, a new code has been sent')
+      )
+    }
+
+    // Rate limit: last OTP sent > 60s ago
+    if (user.otpExpires && Date.now() < (user.otpExpires.getTime() - 9 * 60 * 1000)) {
+      const secondsLeft = Math.ceil(((user.otpExpires.getTime() - 9 * 60 * 1000) - Date.now()) / 1000)
+      return next(new ApiError(429, `Please wait ${secondsLeft} seconds before requesting a new code`))
+    }
+
+    const plainOtp = generateOTP()
+    const hashed = await hashOTP(plainOtp)
+    user.otp = hashed
+    user.otpExpires = new Date(Date.now() + 10 * 60 * 1000)
+    user.otpAttempts = 0
+    user.otpLockedUntil = null
+    await user.save()
+
+    sendOTPEmail(user.email, user.fullName, plainOtp).catch((err) => {
+      console.error('Failed to send resend-OTP email:', err)
+    })
+
+    return res.status(200).json(
+      new ApiResponse(200, null, 'If an account exists, a new code has been sent')
     )
   } catch (error) {
     next(error)
@@ -320,3 +438,23 @@ export const changePassword = async (req, res, next) => {
     next(error)
   }
 }
+
+/**
+ * Check if email exists
+ * GET /api/auth/check-email
+ */
+export const checkEmail = async (req, res, next) => {
+  try {
+    const { email } = req.query
+    if (!email) {
+      return next(new ApiError(400, 'Email parameter is required'))
+    }
+    const user = await User.findOne({ email: email.toLowerCase().trim() })
+    return res.status(200).json(
+      new ApiResponse(200, { exists: !!user }, 'Email check completed')
+    )
+  } catch (error) {
+    next(error)
+  }
+}
+

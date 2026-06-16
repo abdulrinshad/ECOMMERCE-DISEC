@@ -1,14 +1,27 @@
 import { useState } from 'react'
-import { Link, useLocation } from 'react-router-dom'
-import { FiSearch, FiShoppingBag, FiMenu, FiX } from 'react-icons/fi'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { FiSearch, FiShoppingBag, FiMenu, FiX, FiUser } from 'react-icons/fi'
 import { useScrollNavbar } from '../../hooks/useScrollNavbar'
 import { useCartStore } from '../../store/cartStore'
+import { useAuth } from '../../context/AuthContext'
+import AccountDropdown from './AccountDropdown'
 
 export const Navbar = () => {
+  const navigate = useNavigate()
+  const { isAuthenticated } = useAuth()
   const isScrolled = useScrollNavbar(80)
   const location = useLocation()
   const { toggleDrawer, getCartCount } = useCartStore()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [dropdownOpen, setDropdownOpen] = useState(false)
+
+  const handleAccountClick = () => {
+    if (isAuthenticated) {
+      navigate('/dashboard')
+    } else {
+      navigate('/login')
+    }
+  }
   
   // Decide if we should start transparent (only on Home page hero)
   const isHomePage = location.pathname === '/'
@@ -59,13 +72,13 @@ export const Navbar = () => {
               About
               <span className="absolute left-0 bottom-[-4px] w-0 h-[1px] bg-[#0A0A0A] transition-all duration-300 group-hover:w-full"></span>
             </Link>
-            <Link
-              to="/dashboard"
-              className="font-body text-xs font-medium uppercase tracking-[0.12em] text-[#0A0A0A] hover:text-[#5C5C5C] relative group"
+            <button
+              onClick={handleAccountClick}
+              className="font-body text-xs font-medium uppercase tracking-[0.12em] text-[#0A0A0A] hover:text-[#5C5C5C] relative group text-left"
             >
               Account
               <span className="absolute left-0 bottom-[-4px] w-0 h-[1px] bg-[#0A0A0A] transition-all duration-300 group-hover:w-full"></span>
-            </Link>
+            </button>
           </div>
 
           {/* Right Action Icons */}
@@ -90,6 +103,25 @@ export const Navbar = () => {
                 </span>
               )}
             </button>
+
+            <div 
+              className="relative"
+              onMouseEnter={() => isAuthenticated && setDropdownOpen(true)}
+              onMouseLeave={() => setDropdownOpen(false)}
+            >
+              <button
+                type="button"
+                onClick={handleAccountClick}
+                className="text-[#0A0A0A] hover:text-[#5C5C5C] transition-colors p-2 relative"
+                aria-label="Account"
+              >
+                <FiUser size={20} />
+                {isAuthenticated && (
+                  <span className="absolute top-1.5 right-1.5 bg-[#1A3C2E] w-1.5 h-1.5 rounded-full border border-white"></span>
+                )}
+              </button>
+              <AccountDropdown isOpen={dropdownOpen} onClose={() => setDropdownOpen(false)} />
+            </div>
             <button
               type="button"
               className="md:hidden text-[#0A0A0A] hover:text-[#5C5C5C] transition-colors p-2"
@@ -127,13 +159,15 @@ export const Navbar = () => {
             >
               About
             </Link>
-            <Link
-              to="/dashboard"
-              onClick={() => setMobileMenuOpen(false)}
-              className="font-display text-3xl font-bold uppercase tracking-wider text-[#0A0A0A]"
+            <button
+              onClick={() => {
+                setMobileMenuOpen(false)
+                handleAccountClick()
+              }}
+              className="font-display text-3xl font-bold uppercase tracking-wider text-[#0A0A0A] text-left"
             >
               Account
-            </Link>
+            </button>
           </div>
           <div className="border-t border-[#D8D3CA] pt-6 flex flex-col space-y-4">
             <span className="font-body text-[10px] uppercase tracking-widest text-[#5C5C5C]">
