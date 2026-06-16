@@ -1,0 +1,59 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-bg-base text-text-primary font-body;
+  }
+
+  /* Custom focus states for accessibility */
+  a:focus-visible,
+  button:focus-visible,
+  input:focus-visible,
+  select:focus-visible {
+    @apply outline-none ring-2 ring-accent ring-offset-2 ring-offset-bg-base;
+  }
+}
+
+/* Custom premium scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #E8E4DC;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #1A3C2E;
+  border-radius: 0px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #2D6B4F;
+}
+
+/* Page transitions clip-path styles */
+.page-transition-enter {
+  clip-path: inset(100% 0 0 0);
+  opacity: 0;
+}
+
+.page-transition-enter-active {
+  clip-path: inset(0 0 0 0);
+  opacity: 1;
+  transition: clip-path 600ms cubic-bezier(0.4, 0, 0.2, 1), opacity 600ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.page-transition-exit {
+  clip-path: inset(0 0 0 0);
+  opacity: 1;
+}
+
+.page-transition-exit-active {
+  clip-path: inset(100% 0 0 0);
+  opacity: 0;
+  transition: clip-path 600ms cubic-bezier(0.4, 0, 0.2, 1), opacity 600ms cubic-bezier(0.4, 0, 0.2, 1);
+}
