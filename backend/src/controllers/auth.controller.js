@@ -18,8 +18,31 @@ export const register = async (req, res, next) => {
   try {
     const { fullName, email, password } = req.body
 
+if (!fullName || !email || !password) {
+  return next(
+    new ApiError(400, 'All fields are required')
+  )
+}
+
+const normalizedEmail = email.toLowerCase().trim()
+
+    if (!fullName || !email || !password) {
+      return next(new ApiError(400, 'All fields are required'))
+    }
+
+    if (password.length < 8) {
+      return next(
+        new ApiError(
+          400,
+          'Password must be at least 8 characters'
+        )
+      )
+    }
+
     // Check if email already exists
-    const existingUser = await User.findOne({ email })
+    const existingUser = await User.findOne({
+      email: normalizedEmail
+    })
     if (existingUser) {
       if (existingUser.isVerified) {
         return next(new ApiError(409, 'An account with this email already exists'))
@@ -32,7 +55,7 @@ export const register = async (req, res, next) => {
     // Create User
     const user = new User({
       fullName,
-      email,
+      email: normalizedEmail,
       password
     })
 
@@ -52,7 +75,11 @@ export const register = async (req, res, next) => {
     })
 
     return res.status(201).json(
-      new ApiResponse(201, { email: user.email }, 'Verification code sent to your email')
+      new ApiResponse(201, {
+        email: user.email,
+        requiresVerification: true,
+        redirectTo: '/verify-email'
+      }, 'Verification code sent to your email')
     )
   } catch (error) {
     next(error)
@@ -66,8 +93,16 @@ export const register = async (req, res, next) => {
 export const login = async (req, res, next) => {
   try {
     const { email, password } = req.body
+    if (!email || !password) {
+      return next(
+        new ApiError(400, 'Email and password are required')
+      )
+    }
 
-    const user = await User.findOne({ email }).select('+password +refreshToken')
+    const normalizedEmail = email.toLowerCase().trim()
+
+    const user = await User.findOne({ email: normalizedEmail }).select('+password +refreshToken')
+
     if (!user) {
       return next(new ApiError(401, 'Invalid credentials'))
     }
@@ -83,21 +118,35 @@ export const login = async (req, res, next) => {
       return next(new ApiError(403, 'Please verify your email before logging in'))
     }
 
-    // Compare passwords
-    const isPasswordMatch = await user.comparePassword(password)
-    if (!isPasswordMatch) {
-      user.failedLoginAttempts += 1
-      if (user.failedLoginAttempts >= 5) {
-        user.loginLockUntil = new Date(Date.now() + 15 * 60 * 1000)
-        user.failedLoginAttempts = 0
-      }
-      await user.save()
-      return next(new ApiError(401, 'Invalid credentials'))
-    }
+    // Compare password
+const isPasswordMatch = await user.comparePassword(password)
 
-    // Reset failed login attempts on success
+if (!isPasswordMatch) {
+  console.warn(
+    `Failed login attempt for ${user.email}`
+  )
+
+  user.failedLoginAttempts += 1
+
+  if (user.failedLoginAttempts >= 5) {
+    user.loginLockUntil = new Date(
+      Date.now() + 15 * 60 * 1000
+    )
+
     user.failedLoginAttempts = 0
-    user.loginLockUntil = null
+  }
+
+  await user.save()
+
+  return next(
+    new ApiError(401, 'Invalid credentials')
+  )
+}
+// Reset after successful login
+user.failedLoginAttempts = 0
+user.loginLockUntil = null
+
+await user.save()
 
     // Generate tokens
     const accessToken = generateAccessToken(user._id, user.role)
@@ -135,6 +184,12 @@ export const login = async (req, res, next) => {
 export const verifyOTP = async (req, res, next) => {
   try {
     const { email, otp } = req.body
+
+    if (!email || !otp) {
+      return next(
+        new ApiError(400, 'Email and OTP are required')
+      )
+    }
 
     const user = await User.findOne({ email: email.toLowerCase().trim() }).select('+otp')
     if (!user) {
@@ -177,7 +232,14 @@ export const verifyOTP = async (req, res, next) => {
     await user.save()
 
     return res.status(200).json(
-      new ApiResponse(200, { email: user.email }, 'Email verified successfully. Please log in.')
+      new ApiResponse(
+        200,
+        {
+          email: user.email,
+          redirectTo: '/login'
+        },
+        'Email verified successfully'
+      )
     )
   } catch (error) {
     next(error)
@@ -419,7 +481,7 @@ export const changePassword = async (req, res, next) => {
 
     // Update password (pre-save hook will hash it)
     user.password = newPassword
-    
+
     // Revoke all refresh tokens
     user.refreshToken = null
     await user.save()

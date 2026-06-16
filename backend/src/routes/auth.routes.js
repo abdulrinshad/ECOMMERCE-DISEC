@@ -124,7 +124,7 @@ router.post('/verify-otp', verifyOtpLimiter, verifyOTPValidation, validate, veri
 router.post('/resend-otp', resendOtpLimiter, resendOTPValidation, validate, resendOTP)
 router.post('/login', loginLimiter, loginValidation, validate, login)
 router.post('/refresh', refresh)
-router.post('/logout', logout)
+router.post('/logout', protect, logout)
 router.get('/check-email', checkEmail)
 
 // Protected routes

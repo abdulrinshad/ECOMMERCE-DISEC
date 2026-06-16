@@ -112,35 +112,18 @@ export const Register = () => {
       }
 
       await registerUser(data.fullName, data.email, data.password)
-      toast.success('MEMBERSHIP INITIALIZED')
+      toast.success(
+  'Verification code sent to your email'
+)
 
-      // Green flash and redirect animation
-      const mainEl = document.querySelector('main')
-      if (mainEl) {
-        gsap.to(mainEl, {
-          backgroundColor: '#2D6B4F',
-          duration: 0.3,
-          onComplete: () => {
-            gsap.to(mainEl, {
-              backgroundColor: '#1A3C2E',
-              duration: 0.5,
-              delay: 0.3,
-              onComplete: () => {
-                navigate('/dashboard')
-              }
-            })
-          }
-        })
-      } else {
-        setTimeout(() => navigate('/dashboard'), 800)
-      }
+navigate('/verify-email', {
+  state: {
+    email: data.email
+  }
+})
+
     } catch (err) {
       toast.error(err.message || 'Registration failed')
-      // Form level shake on server/unexpected error
-      const formEl = document.querySelector('form')
-      if (formEl) {
-        gsap.to(formEl, { x: [-10, 10, -8, 8, 0], duration: 0.4 })
-      }
     } finally {
       setIsSubmitting(false)
     }

@@ -17,6 +17,7 @@ import Register from './pages/Register'
 import Dashboard from './pages/Dashboard'
 import About from './pages/About'
 import Checkout from './pages/Checkout'
+import VerifyEmail from './pages/VerifyEmail'
 
 // Auth Protection
 import ProtectedRoute from './components/auth/ProtectedRoute'
@@ -124,6 +125,14 @@ function AppContent() {
             element={
               <PageTransition>
                 <Register />
+              </PageTransition>
+            }
+          />
+          <Route
+            path="/verify-email"
+            element={
+              <PageTransition>
+                <VerifyEmail />
               </PageTransition>
             }
           />
