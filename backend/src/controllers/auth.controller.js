@@ -161,12 +161,11 @@ await user.save()
     setRefreshTokenCookie(res, refreshToken)
 
     const userResponse = {
-      id: user._id,
+      _id: user._id,
       fullName: user.fullName,
       email: user.email,
       role: user.role,
-      memberLevel: user.memberLevel,
-      createdAt: user.createdAt
+      isVerified: user.isVerified
     }
 
     return res.status(200).json(
@@ -338,8 +337,16 @@ export const refresh = async (req, res, next) => {
     // Send new cookie
     setRefreshTokenCookie(res, newRefreshToken)
 
+    const userResponse = {
+      _id: user._id,
+      fullName: user.fullName,
+      email: user.email,
+      role: user.role,
+      isVerified: user.isVerified
+    }
+
     return res.status(200).json(
-      new ApiResponse(200, { accessToken: newAccessToken }, 'Token refreshed successfully')
+      new ApiResponse(200, { user: userResponse, accessToken: newAccessToken }, 'Token refreshed successfully')
     )
   } catch (error) {
     next(error)
@@ -393,8 +400,18 @@ export const getProfile = async (req, res, next) => {
       return next(new ApiError(404, 'User not found'))
     }
 
+    const accessToken = req.headers.authorization?.split(' ')[1] || req.token
+
+    const userResponse = {
+      _id: user._id,
+      fullName: user.fullName,
+      email: user.email,
+      role: user.role,
+      isVerified: user.isVerified
+    }
+
     return res.status(200).json(
-      new ApiResponse(200, user, 'Profile retrieved successfully')
+      new ApiResponse(200, { user: userResponse, accessToken }, 'Profile retrieved successfully')
     )
   } catch (error) {
     next(error)

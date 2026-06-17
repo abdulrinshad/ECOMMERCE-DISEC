@@ -9,7 +9,7 @@ import productRouter from './routes/product.routes.js'
 import cartRouter from './routes/cart.routes.js'
 import wishlistRouter from './routes/wishlist.routes.js'
 import checkoutRouter from './routes/checkout.routes.js'
-import { orderRouter } from './routes/order.routes.js'
+import { orderRouter, accountRouter } from './routes/order.routes.js'
 import adminRouter from './routes/admin.routes.js'
 import reviewRouter from './routes/review.routes.js'
 import errorHandler from './middleware/errorHandler.js'
@@ -72,6 +72,9 @@ app.use('/api/checkout', checkoutRouter)
 
 // Order Router mounting
 app.use('/api/orders', orderRouter)
+
+// Account Router mounting
+app.use('/api/account', accountRouter)
 
 // Admin Router mounting
 app.use('/api/admin', adminRouter)

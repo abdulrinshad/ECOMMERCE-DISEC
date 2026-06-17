@@ -1,16 +1,20 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useCartStore } from '../store/cartStore'
+import { useAuth } from '../context/AuthContext'
+import { createOrder } from '../services/orderService'
 import ContactSection from '../components/checkout/ContactSection'
 import DeliverySection from '../components/checkout/DeliverySection'
 import ShippingMethod from '../components/checkout/ShippingMethod'
 import PaymentSection from '../components/checkout/PaymentSection'
 import OrderSummary from '../components/checkout/OrderSummary'
+import { toast } from 'react-hot-toast'
 import gsap from 'gsap'
 
 export const Checkout = () => {
   const navigate = useNavigate()
-  const { cartItems, clearCart, getCartTotal } = useCartStore()
+  const { cartItems, cartSummary, fetchCart, clearCart, getCartTotal, isLoading: isCartLoading } = useCartStore()
+  const { accessToken, isLoading: isAuthLoading } = useAuth()
 
   // Form states
   const [email, setEmail] = useState('')
@@ -25,6 +29,7 @@ export const Checkout = () => {
     country: ''
   })
   const [shippingMethod, setShippingMethod] = useState('standard')
+  const [paymentMethod, setPaymentMethod] = useState('CARD')
   const [paymentData, setPaymentData] = useState({
     cardNumber: '',
     expiry: '',
@@ -60,20 +65,27 @@ export const Checkout = () => {
     cardName: useRef(null)
   }
 
-  // Calculate fees
-  const shippingFee = shippingMethod === 'express' ? 18.00 : 0.00
-  const subtotal = getCartTotal()
-  const discountAmount = subtotal * discountPercent
+  // Calculate fees using synchronized Zustand cartSummary state
+  const shippingFee = cartSummary?.shipping || 0
+  const subtotal = cartSummary?.subtotal || 0
+  const discountAmount = cartSummary?.discount || 0
   const discountedSubtotal = subtotal - discountAmount
-  const vat = discountedSubtotal * 0.20
-  const total = discountedSubtotal + shippingFee + vat
+  const vat = cartSummary?.tax || 0
+  const total = cartSummary?.grandTotal || 0
 
   // Redirect if cart is empty
   useEffect(() => {
-    if (cartItems.length === 0 && buttonState !== 'success') {
+    if (!isAuthLoading && !isCartLoading && cartItems.length === 0 && buttonState !== 'success') {
       navigate('/shop')
     }
-  }, [cartItems, navigate, buttonState])
+  }, [cartItems, navigate, buttonState, isAuthLoading, isCartLoading])
+
+  // Fetch Cart on mount to ensure checkout has fresh totals
+  useEffect(() => {
+    if (accessToken) {
+      fetchCart(accessToken)
+    }
+  }, [accessToken, fetchCart])
 
   // GSAP Animations on Mount
   useEffect(() => {
@@ -136,13 +148,15 @@ export const Checkout = () => {
       }
     })
 
-    // Check payment required fields
-    const reqPaymentFields = ['cardNumber', 'expiry', 'cvv', 'cardName']
-    reqPaymentFields.forEach((field) => {
-      if (!paymentData[field]) {
-        markInvalid(paymentRefs[field])
-      }
-    })
+    // Check payment required fields (only if CARD selected)
+    if (paymentMethod === 'CARD') {
+      const reqPaymentFields = ['cardNumber', 'expiry', 'cvv', 'cardName']
+      reqPaymentFields.forEach((field) => {
+        if (!paymentData[field]) {
+          markInvalid(paymentRefs[field])
+        }
+      })
+    }
 
     if (firstInvalidRef?.current) {
       firstInvalidRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
@@ -156,7 +170,7 @@ export const Checkout = () => {
     setPromoCode(code)
   }
 
-  const handleCompleteAcquisition = (e) => {
+  const handleCompleteAcquisition = async (e) => {
     if (e) e.preventDefault()
     
     if (buttonState !== 'idle') return
@@ -169,9 +183,24 @@ export const Checkout = () => {
     // Transition to Processing state
     setButtonState('processing')
 
-    // Simulate Payment processing
-    setTimeout(() => {
+    try {
+      const orderPayload = {
+        email,
+        keepUpdated,
+        deliveryData,
+        shippingMethod,
+        paymentMethod,
+        promoCode: promoCode || null
+      }
+
+      if (paymentMethod === 'CARD') {
+        orderPayload.paymentData = paymentData
+      }
+
+      const res = await createOrder(orderPayload, accessToken)
+      
       setButtonState('success')
+      toast.success('ACQUISITION CONFIRMED')
       
       // Success flash animation
       const submitBtn = document.querySelectorAll('.checkout-submit-btn')
@@ -181,13 +210,17 @@ export const Checkout = () => {
         yoyo: true,
         repeat: 1,
         onComplete: () => {
-          setTimeout(() => {
-            clearCart()
-            navigate('/shop')
+          setTimeout(async () => {
+            await clearCart(accessToken)
+            await fetchCart(accessToken)
+            navigate('/dashboard/orders')
           }, 1200)
         }
       })
-    }, 2500)
+    } catch (err) {
+      setButtonState('idle')
+      toast.error(err.message || 'Acquisition protocol rejected')
+    }
   }
 
   if (cartItems.length === 0 && buttonState !== 'success') {
@@ -261,6 +294,8 @@ export const Checkout = () => {
             />
 
             <PaymentSection
+              paymentMethod={paymentMethod}
+              setPaymentMethod={setPaymentMethod}
               paymentData={paymentData}
               setPaymentData={setPaymentData}
               fieldRefs={paymentRefs}

@@ -1,3 +1,4 @@
+import mongoose from 'mongoose'
 import { Order } from '../models/order.model.js'
 import { ApiError } from '../utils/ApiResponse.js'
 
@@ -22,7 +23,7 @@ export const getUserOrders = async (userId, queryOptions = {}) => {
 
   const filter = { user: userId }
   if (status) {
-    filter.status = status
+    filter.orderStatus = status
   }
 
   const sort = { [sortBy]: sortOrder === 'desc' ? -1 : 1 }
@@ -82,13 +83,13 @@ export const cancelOrder = async (orderId, cancelReason, user) => {
     throw new ApiError(403, 'Unauthorized to cancel this order')
   }
 
-  // Cancellation Allowed ONLY for pending and confirmed statuses
-  if (!['pending', 'confirmed'].includes(order.status)) {
-    throw new ApiError(400, `Cannot cancel order with status: ${order.status}. Cancellation not allowed for shipped, out_for_delivery, delivered, or already cancelled/refunded orders.`)
+  // Cancellation Allowed ONLY for pending statuses
+  if (order.orderStatus !== 'pending') {
+    throw new ApiError(400, `Cannot cancel order with status: ${order.orderStatus}.`)
   }
 
   // Update status and cancel reasons
-  order.status = 'cancelled'
+  order.orderStatus = 'cancelled'
   order.cancelReason = cancelReason
   order.cancelledAt = new Date()
   order.trackingHistory.push({
@@ -118,7 +119,7 @@ export const getAllOrdersAdmin = async (queryOptions = {}) => {
 
   const filter = {}
   if (status) {
-    filter.status = status
+    filter.orderStatus = status
   }
 
   const sort = { [sortBy]: sortOrder === 'desc' ? -1 : 1 }
@@ -154,25 +155,19 @@ export const updateOrderStatusAdmin = async (orderId, status, message = '') => {
   }
 
   // Update status and add tracking entry
-  order.status = status
+  order.orderStatus = status
   
   // Update payment status on delivery to 'paid' if it was pending
   if (status === 'delivered' && order.paymentStatus === 'pending') {
     order.paymentStatus = 'paid'
   }
-  
-  if (status === 'refunded') {
-    order.paymentStatus = 'refunded'
-  }
 
   const statusMessages = {
-    confirmed: 'Order has been confirmed by the warehouse.',
+    pending: 'Order pending review.',
     processing: 'Order is being packaged and prepared for shipping.',
     shipped: 'Order has departed our facility.',
-    out_for_delivery: 'Order is out with our courier for delivery.',
     delivered: 'Order has been successfully delivered.',
-    cancelled: 'Order has been cancelled.',
-    refunded: 'Order has been fully refunded.'
+    cancelled: 'Order has been cancelled.'
   }
 
   const trackingMessage = message || statusMessages[status] || `Order status updated to ${status}`
@@ -184,4 +179,43 @@ export const updateOrderStatusAdmin = async (orderId, status, message = '') => {
 
   await order.save()
   return order
+}
+
+/**
+ * Get Account Dashboard Statistics for a customer
+ * @param {string} userId 
+ * @returns {Promise<Object>}
+ */
+export const getAccountDashboardStats = async (userId) => {
+  const result = await Order.aggregate([
+    { $match: { user: new mongoose.Types.ObjectId(userId) } },
+    {
+      $group: {
+        _id: null,
+        totalOrders: { $sum: 1 },
+        pendingOrders: { $sum: { $cond: [{ $eq: ['$orderStatus', 'pending'] }, 1, 0] } },
+        deliveredOrders: { $sum: { $cond: [{ $eq: ['$orderStatus', 'delivered'] }, 1, 0] } },
+        cancelledOrders: { $sum: { $cond: [{ $eq: ['$orderStatus', 'cancelled'] }, 1, 0] } },
+        totalSpent: { $sum: { $cond: [{ $ne: ['$orderStatus', 'cancelled'] }, '$totalAmount', 0] } }
+      }
+    }
+  ])
+
+  if (result.length === 0) {
+    return {
+      totalOrders: 0,
+      pendingOrders: 0,
+      deliveredOrders: 0,
+      cancelledOrders: 0,
+      totalSpent: 0
+    }
+  }
+
+  return {
+    totalOrders: result[0].totalOrders || 0,
+    pendingOrders: result[0].pendingOrders || 0,
+    deliveredOrders: result[0].deliveredOrders || 0,
+    cancelledOrders: result[0].cancelledOrders || 0,
+    totalSpent: Number((result[0].totalSpent || 0).toFixed(2))
+  }
 }

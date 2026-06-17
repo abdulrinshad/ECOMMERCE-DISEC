@@ -1,74 +1,245 @@
 import { create } from 'zustand'
 
+const mapBackendToFrontend = (backendItems = []) => {
+  return backendItems.map((item) => ({
+    id: item.product?._id || item.product,
+    _id: item._id, // Cart Item MongoDB ID
+    name: item.name,
+    title: item.name,
+    price: item.price,
+    images: [item.image],
+    thumbnail: item.image,
+    selectedSize: item.size,
+    selectedColor: item.color,
+    quantity: item.quantity,
+    subtotal: item.subtotal
+  }))
+}
+
 export const useCartStore = create((set, get) => ({
   cartItems: [],
+  cartSummary: {
+    totalItems: 0,
+    subtotal: 0,
+    discount: 0,
+    shipping: 0,
+    tax: 0,
+    grandTotal: 0
+  },
   isDrawerOpen: false,
+  isLoading: false,
+  error: null,
   
   openDrawer: () => set({ isDrawerOpen: true }),
   closeDrawer: () => set({ isDrawerOpen: false }),
   toggleDrawer: () => set((state) => ({ isDrawerOpen: !state.isDrawerOpen })),
-  
-  addItem: (product, size, color, addedQuantity = 1) => {
-    set((state) => {
-      // Find if item with same ID, size, and color already exists
-      const existingItemIndex = state.cartItems.findIndex(
-        (item) => item.id === product.id && item.selectedSize === size && item.selectedColor === color
-      )
-      
-      let newCartItems = [...state.cartItems]
-      
-      if (existingItemIndex > -1) {
-        // Increment quantity
-        newCartItems[existingItemIndex] = {
-          ...newCartItems[existingItemIndex],
-          quantity: newCartItems[existingItemIndex].quantity + addedQuantity
+
+  fetchCart: async (token) => {
+    if (!token) return
+    set({ isLoading: true, error: null })
+    try {
+      const res = await fetch('/api/cart', {
+        headers: {
+          'Authorization': `Bearer ${token}`
         }
-      } else {
-        // Add new item
-        newCartItems.push({
-          ...product,
-          selectedSize: size,
-          selectedColor: color,
-          quantity: addedQuantity
+      })
+      const responseData = await res.json()
+      if (res.ok) {
+        set({
+          cartItems: mapBackendToFrontend(responseData.data?.items || []),
+          cartSummary: responseData.data?.cartSummary || {
+            totalItems: 0,
+            subtotal: 0,
+            discount: 0,
+            shipping: 0,
+            tax: 0,
+            grandTotal: 0
+          },
+          isLoading: false
         })
+      } else {
+        set({ error: responseData.message, isLoading: false })
       }
-      
-      return { cartItems: newCartItems }
-    })
+    } catch (err) {
+      set({ error: err.message, isLoading: false })
+    }
   },
-  
-  removeItem: (itemId, size, color) => {
-    set((state) => ({
-      cartItems: state.cartItems.filter(
-        (item) => !(item.id === itemId && item.selectedSize === size && item.selectedColor === color)
-      )
-    }))
-  },
-  
-  updateQuantity: (itemId, size, color, quantity) => {
-    if (quantity <= 0) {
-      get().removeItem(itemId, size, color)
+
+  addToCart: async (product, size, color, addedQuantity = 1, token) => {
+    if (!token) {
+      set({ error: 'Authentication required to modify cart.' })
       return
     }
-    
-    set((state) => ({
-      cartItems: state.cartItems.map((item) =>
-        item.id === itemId && item.selectedSize === size && item.selectedColor === color
-          ? { ...item, quantity }
-          : item
-      )
-    }))
+
+    set({ isLoading: true, error: null })
+    try {
+      const res = await fetch('/api/cart/items', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          productId: product.id || product._id,
+          size,
+          color,
+          quantity: addedQuantity
+        })
+      })
+      const responseData = await res.json()
+      if (res.ok) {
+        set({
+          cartItems: mapBackendToFrontend(responseData.data?.items || []),
+          cartSummary: responseData.data?.cartSummary || {
+            totalItems: 0,
+            subtotal: 0,
+            discount: 0,
+            shipping: 0,
+            tax: 0,
+            grandTotal: 0
+          },
+          isLoading: false
+        })
+      } else {
+        set({ error: responseData.message, isLoading: false })
+        throw new Error(responseData.message || 'Failed to add item to cart')
+      }
+    } catch (err) {
+      set({ error: err.message, isLoading: false })
+      throw err
+    }
   },
-  
-  clearCart: () => set({ cartItems: [] }),
-  
+
+  // Keep addItem as alias for backward compatibility
+  addItem: async (product, size, color, addedQuantity = 1, token) => {
+    return get().addToCart(product, size, color, addedQuantity, token)
+  },
+
+  removeItem: async (productId, size, color, token) => {
+    const previousItems = get().cartItems
+    const targetItem = previousItems.find(
+      (item) => item.id === productId && item.selectedSize === size && item.selectedColor === color
+    )
+    if (!targetItem) return
+
+    if (!token) return
+
+    set({ isLoading: true, error: null })
+    try {
+      const res = await fetch(`/api/cart/items/${targetItem._id || targetItem.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      const responseData = await res.json()
+      if (res.ok) {
+        set({
+          cartItems: mapBackendToFrontend(responseData.data?.items || []),
+          cartSummary: responseData.data?.cartSummary || {
+            totalItems: 0,
+            subtotal: 0,
+            discount: 0,
+            shipping: 0,
+            tax: 0,
+            grandTotal: 0
+          },
+          isLoading: false
+        })
+      } else {
+        set({ error: responseData.message, isLoading: false })
+      }
+    } catch (err) {
+      set({ error: err.message, isLoading: false })
+    }
+  },
+
+  updateQuantity: async (productId, size, color, quantity, token) => {
+    if (quantity <= 0) {
+      get().removeItem(productId, size, color, token)
+      return
+    }
+
+    const previousItems = get().cartItems
+    const targetItem = previousItems.find(
+      (item) => item.id === productId && item.selectedSize === size && item.selectedColor === color
+    )
+    if (!targetItem) return
+
+    if (!token) return
+
+    set({ isLoading: true, error: null })
+    try {
+      const res = await fetch(`/api/cart/items/${targetItem._id || targetItem.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ quantity })
+      })
+      const responseData = await res.json()
+      if (res.ok) {
+        set({
+          cartItems: mapBackendToFrontend(responseData.data?.items || []),
+          cartSummary: responseData.data?.cartSummary || {
+            totalItems: 0,
+            subtotal: 0,
+            discount: 0,
+            shipping: 0,
+            tax: 0,
+            grandTotal: 0
+          },
+          isLoading: false
+        })
+      } else {
+        set({ error: responseData.message, isLoading: false })
+      }
+    } catch (err) {
+      set({ error: err.message, isLoading: false })
+    }
+  },
+
+  clearCart: async (token) => {
+    if (!token) return
+
+    set({ isLoading: true, error: null })
+    try {
+      const res = await fetch('/api/cart', {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      const responseData = await res.json()
+      if (res.ok) {
+        set({
+          cartItems: mapBackendToFrontend(responseData.data?.items || []),
+          cartSummary: responseData.data?.cartSummary || {
+            totalItems: 0,
+            subtotal: 0,
+            discount: 0,
+            shipping: 0,
+            tax: 0,
+            grandTotal: 0
+          },
+          isLoading: false
+        })
+      } else {
+        set({ error: responseData.message, isLoading: false })
+      }
+    } catch (err) {
+      set({ error: err.message, isLoading: false })
+    }
+  },
+
   getCartTotal: () => {
-    const { cartItems } = get()
-    return cartItems.reduce((acc, item) => acc + item.price * item.quantity, 0)
+    const { cartSummary } = get()
+    return cartSummary.subtotal
   },
-  
+
   getCartCount: () => {
-    const { cartItems } = get()
-    return cartItems.reduce((acc, item) => acc + item.quantity, 0)
+    const { cartSummary } = get()
+    return cartSummary.totalItems
   }
 }))

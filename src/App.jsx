@@ -25,6 +25,7 @@ import WishlistPage from './pages/WishlistPage'
 import OrdersPage from './pages/OrdersPage'
 import OrderDetails from './pages/OrderDetails'
 import ProductReviews from './pages/ProductReviews'
+import CartPage from './pages/CartPage'
 
 // Admin Panel Modules
 import AdminLayout from './admin/layouts/AdminLayout'
@@ -39,6 +40,9 @@ import AdminAuditLogs from './admin/pages/AdminAuditLogs'
 
 // Auth Protection
 import ProtectedRoute from './components/auth/ProtectedRoute'
+import AdminRoute from './components/auth/AdminRoute'
+import CustomerRoute from './components/auth/CustomerRoute'
+import Forbidden from './pages/Forbidden'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import LoadingScreen from './components/ui/LoadingScreen'
 
@@ -141,6 +145,14 @@ function AppContent() {
             }
           />
           <Route
+            path="/cart"
+            element={
+              <PageTransition>
+                <CartPage />
+              </PageTransition>
+            }
+          />
+          <Route
             path="/login"
             element={
               <PageTransition>
@@ -189,8 +201,18 @@ function AppContent() {
             }
           />
 
-          {/* Protected Routes */}
-          <Route element={<ProtectedRoute />}>
+          {/* Forbidden Page */}
+          <Route
+            path="/forbidden"
+            element={
+              <PageTransition>
+                <Forbidden />
+              </PageTransition>
+            }
+          />
+
+          {/* Customer Routes */}
+          <Route element={<CustomerRoute />}>
             <Route
               path="/dashboard"
               element={
@@ -255,7 +277,10 @@ function AppContent() {
                 </PageTransition>
               }
             />
-            {/* Nested Admin Routes */}
+          </Route>
+
+          {/* Nested Admin Routes */}
+          <Route element={<AdminRoute />}>
             <Route path="/admin" element={<AdminLayout />}>
               <Route index element={<AdminDashboard />} />
               <Route path="products" element={<AdminProducts />} />

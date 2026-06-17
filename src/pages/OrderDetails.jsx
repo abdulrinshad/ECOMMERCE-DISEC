@@ -49,7 +49,7 @@ export const OrderDetails = () => {
   // Check if order is eligible for cancellation
   const isEligibleForCancellation = useMemo(() => {
     if (!currentOrder) return false
-    return ['pending', 'confirmed'].includes(currentOrder.status.toLowerCase())
+    return ['pending', 'confirmed'].includes(currentOrder.orderStatus.toLowerCase())
   }, [currentOrder])
 
   const handleCancelConfirm = async (reason) => {
@@ -138,7 +138,7 @@ export const OrderDetails = () => {
               <span className="font-display text-[10px] font-extrabold uppercase tracking-widest text-[#0A0A0A] block mb-4 border-b border-[#D8D3CA]/60 pb-2">
                 Fulfillment Protocol Progress
               </span>
-              <OrderTimeline status={currentOrder.status} />
+              <OrderTimeline status={currentOrder.orderStatus} />
             </div>
 
             {/* Items Purchased List */}
@@ -152,18 +152,18 @@ export const OrderDetails = () => {
                   <div key={item._id} className="flex gap-4 py-4 first:pt-0 last:pb-0">
                     <img
                       src={item.image || "https://images.unsplash.com/photo-1507679799987-c73779587ccf?q=80&w=100&auto=format&fit=crop"}
-                      alt={item.name}
+                      alt={item.name || item.title}
                       className="w-16 h-20 object-cover bg-[#F2EFE9] border border-[#D8D3CA]"
                     />
                     <div className="flex-grow space-y-1">
                       <h4 className="font-display text-xs font-bold uppercase tracking-tight text-[#0A0A0A]">
-                        {item.name}
+                        {item.name || item.title}
                       </h4>
                       <span className="block font-body text-[10px] text-[#7C766C] uppercase tracking-wide">
                         SKU: {item.sku || 'N/A'}
                       </span>
                       <span className="block font-body text-[10px] text-[#7C766C] uppercase tracking-wide">
-                        Size: {item.variantId?.split('_')[1] || 'Default'} | Color: {item.variantId?.split('_')[2] || 'Default'}
+                        Size: {item.size || 'Default'} | Color: {item.color || 'Default'}
                       </span>
                       <div className="flex justify-between items-baseline pt-2">
                         <span className="font-body text-xs text-[#5C5C5C]">
@@ -188,7 +188,7 @@ export const OrderDetails = () => {
               <span className="font-display text-[9px] font-extrabold uppercase tracking-widest text-[#7C766C] block">
                 Order Protocol Status
               </span>
-              <OrderStatusBadge status={currentOrder.status} />
+              <OrderStatusBadge status={currentOrder.orderStatus} />
 
               {isEligibleForCancellation && (
                 <button
@@ -224,27 +224,27 @@ export const OrderDetails = () => {
               <div className="space-y-2 border-b border-[#D8D3CA]/60 pb-3 font-body text-xs uppercase tracking-wider text-[#5C5C5C]">
                 <div className="flex justify-between">
                   <span>Subtotal</span>
-                  <span>${currentOrder.pricing.subtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                  <span>${(currentOrder.subtotal || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                 </div>
-                {currentOrder.pricing.discount > 0 && (
+                {currentOrder.discount > 0 && (
                   <div className="flex justify-between text-red-600">
                     <span>Discount</span>
-                    <span>-${currentOrder.pricing.discount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                    <span>-${(currentOrder.discount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                   </div>
                 )}
                 <div className="flex justify-between">
                   <span>Shipping Fee</span>
-                  <span>${currentOrder.pricing.shippingFee.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                  <span>${(currentOrder.shippingFee || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>VAT (20%)</span>
-                  <span>${currentOrder.pricing.tax.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                  <span>${(currentOrder.tax || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                 </div>
               </div>
 
               <div className="flex justify-between font-display text-sm font-extrabold uppercase tracking-widest text-[#0A0A0A]">
                 <span>Grand Total</span>
-                <span>${currentOrder.pricing.grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                <span>${(currentOrder.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
               </div>
             </div>
 

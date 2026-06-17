@@ -1,8 +1,7 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import gsap from 'gsap'
 import { useGSAP } from '@gsap/react'
-import { products } from '../data/products'
 import ProductGrid from '../components/product/ProductGrid'
 import Ticker from '../components/ui/Ticker'
 import Button from '../components/ui/Button'
@@ -16,6 +15,9 @@ export const Home = () => {
   const statementRevealRef = useScrollReveal()
   const seriesRevealRef = useScrollReveal()
   const newsletterRevealRef = useScrollReveal()
+
+  const [essentialsProducts, setEssentialsProducts] = useState([])
+  const [isLoading, setIsLoading] = useState(true)
 
   // Hero entrance animation
   useGSAP(() => {
@@ -33,8 +35,17 @@ export const Home = () => {
     return () => clearTimeout(timer)
   }, { scope: heroRef })
 
-  // Filter 3 essentials products
-  const essentialsProducts = products.slice(0, 3)
+  useEffect(() => {
+    fetch('/api/products?limit=3')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && data.data) {
+          setEssentialsProducts(data.data)
+        }
+      })
+      .catch((err) => console.error('Error fetching essentials:', err))
+      .finally(() => setIsLoading(false))
+  }, [])
 
   return (
     <main className="w-full overflow-hidden">

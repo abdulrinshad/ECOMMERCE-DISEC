@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react'
 import PropTypes from 'prop-types'
+import { useCartStore } from '../store/cartStore'
 
 const AuthContext = createContext(null)
 
@@ -54,29 +55,13 @@ export const AuthProvider = ({ children }) => {
       }
 
       const refreshData = await refreshRes.json()
-      const { accessToken } = refreshData.data
-
-      // 2. Fetch profile using access token
-      const profileRes = await fetch('/api/auth/me', {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
-        }
-      })
-
-      if (!profileRes.ok) {
-        dispatch({ type: 'AUTH_FAILURE' })
-        return
-      }
-
-      const profileData = await profileRes.json()
-      const user = profileData.data
+      const { user, accessToken } = refreshData.data
 
       dispatch({
         type: 'AUTH_SUCCESS',
         payload: { user, accessToken }
       })
+      useCartStore.getState().fetchCart(accessToken)
     } catch (error) {
       dispatch({ type: 'AUTH_FAILURE' })
     }
@@ -101,6 +86,7 @@ export const AuthProvider = ({ children }) => {
         type: 'AUTH_SUCCESS',
         payload: { user, accessToken }
       })
+      useCartStore.getState().fetchCart(accessToken)
       return responseData.data
     } catch (error) {
       dispatch({ type: 'AUTH_FAILURE' })
@@ -234,10 +220,9 @@ export const AuthProvider = ({ children }) => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
       })
-    } catch (error) {
-      // Ignore network errors on logout, proceed with local logout
     } finally {
       dispatch({ type: 'AUTH_FAILURE' })
+      useCartStore.getState().clearCart() // clears local store
     }
   }
 

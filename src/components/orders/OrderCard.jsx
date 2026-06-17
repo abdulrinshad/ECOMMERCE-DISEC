@@ -23,7 +23,7 @@ export const OrderCard = ({ order }) => {
         {order.items && order.items[0] && (
           <img
             src={order.items[0].image || "https://images.unsplash.com/photo-1507679799987-c73779587ccf?q=80&w=100&auto=format&fit=crop"}
-            alt={order.items[0].name}
+            alt={order.items[0].name || order.items[0].title}
             className="w-16 h-20 object-cover bg-[#F2EFE9] border border-[#D8D3CA] flex-shrink-0"
           />
         )}
@@ -39,14 +39,14 @@ export const OrderCard = ({ order }) => {
             Initiated {formattedDate}
           </span>
           <span className="font-body text-xs text-[#0A0A0A] font-bold block pt-1">
-            {itemsCount} {itemsCount === 1 ? 'Item' : 'Items'} — ${order.pricing.grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            {itemsCount} {itemsCount === 1 ? 'Item' : 'Items'} — ${(order.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </span>
         </div>
       </div>
 
       {/* Right section: status & action */}
       <div className="flex flex-row md:flex-col justify-between items-end md:justify-between h-full min-h-[72px] self-stretch">
-        <OrderStatusBadge status={order.status} />
+        <OrderStatusBadge status={order.orderStatus} />
 
         <button 
           type="button" 

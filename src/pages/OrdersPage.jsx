@@ -15,7 +15,7 @@ export const OrdersPage = () => {
   const [activeStatusFilter, setActiveStatusFilter] = useState('ALL')
 
   // Available status tabs for aesthetic filtering
-  const statusTabs = ['ALL', 'PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED']
+  const statusTabs = ['ALL', 'PENDING', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED']
 
   // Fetch orders when page, status, or token changes
   useEffect(() => {

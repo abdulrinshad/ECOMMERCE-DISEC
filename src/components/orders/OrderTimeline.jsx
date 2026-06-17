@@ -2,7 +2,7 @@ import React from 'react'
 
 export const OrderTimeline = ({ status }) => {
   const steps = [
-    { key: 'confirmed', label: 'Confirmed' },
+    { key: 'pending', label: 'Confirmed' },
     { key: 'processing', label: 'Processing' },
     { key: 'shipped', label: 'Shipped' },
     { key: 'out_for_delivery', label: 'Out For Delivery' },

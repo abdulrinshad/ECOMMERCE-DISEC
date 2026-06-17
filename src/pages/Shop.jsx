@@ -1,10 +1,13 @@
-import { useState, useMemo } from 'react'
-import { products } from '../data/products'
+import { useState, useMemo, useEffect } from 'react'
 import ProductGrid from '../components/product/ProductGrid'
 import Button from '../components/ui/Button'
 import { useScrollReveal } from '../hooks/useScrollReveal'
 
 export const Shop = () => {
+  const [products, setProducts] = useState([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState(null)
+
   const [selectedCategory, setSelectedCategory] = useState('ALL')
   const [selectedSize, setSelectedSize] = useState('ALL')
   const [selectedColor, setSelectedColor] = useState('ALL')
@@ -17,6 +20,30 @@ export const Shop = () => {
   const sizes = ['ALL', 'S', 'M', 'L', 'XL', 'O/S']
   const colors = ['ALL', 'CARBON BLACK', 'STEALTH BLACK', 'CHROME', 'MATTE BLACK', 'FROST GRAY', 'ALPHA GREEN', 'CORE OLIVE', 'DARK CREAM']
 
+  useEffect(() => {
+    setIsLoading(true)
+    fetch('/api/products?limit=100')
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error('Failed to retrieve catalog')
+        }
+        return res.json()
+      })
+      .then((data) => {
+        if (data.success && data.data) {
+          setProducts(data.data)
+        } else {
+          throw new Error(data.message || 'Failed to retrieve catalog')
+        }
+      })
+      .catch((err) => {
+        setError(err.message)
+      })
+      .finally(() => {
+        setIsLoading(false)
+      })
+  }, [])
+
   // Filtering & Sorting logic
   const filteredProducts = useMemo(() => {
     let result = [...products]
@@ -28,31 +55,29 @@ export const Shop = () => {
 
     // Size Filter
     if (selectedSize !== 'ALL') {
-      result = result.filter(p => p.sizes.includes(selectedSize))
+      result = result.filter(p => p.sizes && p.sizes.includes(selectedSize))
     }
 
     // Color Filter
     if (selectedColor !== 'ALL') {
-      result = result.filter(p => p.colors.includes(selectedColor))
+      result = result.filter(p => p.colors && p.colors.includes(selectedColor))
     }
 
     // Sorting
     if (sortOption === 'PRICE: LOW') {
       result.sort((a, b) => a.price - b.price)
     } else if (sortOption === 'POPULARITY') {
-      // Sort items marked as SOLD OUT or LIMITED first as high popularity items
       result.sort((a, b) => {
         const scoreA = a.badge === 'SOLD OUT' ? 3 : a.badge === 'LIMITED' ? 2 : 1
         const scoreB = b.badge === 'SOLD OUT' ? 3 : b.badge === 'LIMITED' ? 2 : 1
         return scoreB - scoreA
       })
     } else {
-      // LATEST (default) - Keep original mock order or sort by limitedCount
       result.sort((a, b) => b.limitedCount - a.limitedCount)
     }
 
     return result
-  }, [selectedCategory, selectedSize, selectedColor, sortOption])
+  }, [products, selectedCategory, selectedSize, selectedColor, sortOption])
 
   return (
     <main className="max-w-7xl mx-auto px-6 pt-32 pb-24 min-h-screen bg-bg-base">
@@ -175,7 +200,20 @@ export const Shop = () => {
 
         {/* Right Main Grid */}
         <section className="lg:col-span-9">
-          <ProductGrid products={filteredProducts} variant="masonry" />
+          {isLoading ? (
+            <div className="flex flex-col items-center justify-center py-20 space-y-4">
+              <div className="w-10 h-10 border-2 border-t-[#1A3C2E] border-r-transparent border-b-[#1A3C2E] border-l-transparent rounded-full animate-spin" />
+              <span className="font-display text-[10px] font-extrabold tracking-widest text-[#7C766C] uppercase">
+                Loading Archives Catalog...
+              </span>
+            </div>
+          ) : error ? (
+            <div className="bg-red-50 border border-red-200 p-6 text-center text-red-800 font-display text-xs font-extrabold uppercase tracking-widest">
+              Protocol Error: {error}
+            </div>
+          ) : (
+            <ProductGrid products={filteredProducts} variant="masonry" />
+          )}
         </section>
       </div>
     </main>

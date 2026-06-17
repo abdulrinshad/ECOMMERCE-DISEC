@@ -21,14 +21,32 @@ export const checkoutSchema = z.object({
     error_map: () => ({ message: "Shipping method must be either 'standard' or 'express'" })
   }),
   
-  paymentData: z.object({
-    cardNumber: z.string().trim().min(13, 'Card number must be at least 13 digits').max(19, 'Card number cannot exceed 19 digits'),
-    expiry: z.string().trim().regex(/^(0[1-9]|1[0-2])\/?([0-9]{2})$/, 'Expiry must be in MM/YY format'),
-    cvv: z.string().trim().min(3, 'CVV must be 3 digits').max(4, 'CVV cannot exceed 4 digits'),
-    cardName: z.string().trim().min(1, 'Name on card is required')
+  paymentMethod: z.enum(['COD', 'CARD'], {
+    required_error: 'Payment method is required'
   }),
+  
+  paymentData: z.object({
+    cardNumber: z.string().trim().optional(),
+    expiry: z.string().trim().optional(),
+    cvv: z.string().trim().optional(),
+    cardName: z.string().trim().optional()
+  }).optional(),
 
   promoCode: z.string().trim().optional().nullable()
+}).refine(data => {
+  if (data.paymentMethod === 'CARD') {
+    return (
+      data.paymentData &&
+      data.paymentData.cardNumber && data.paymentData.cardNumber.trim().length >= 13 &&
+      data.paymentData.expiry &&
+      data.paymentData.cvv &&
+      data.paymentData.cardName
+    )
+  }
+  return true
+}, {
+  message: 'Card details are required when choosing CARD payment method',
+  path: ['paymentData']
 })
 
 export const updateOrderStatusSchema = z.object({

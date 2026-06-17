@@ -8,7 +8,7 @@ import AccountDropdown from './AccountDropdown'
 
 export const Navbar = () => {
   const navigate = useNavigate()
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, user } = useAuth()
   const isScrolled = useScrollNavbar(80)
   const location = useLocation()
   const { toggleDrawer, getCartCount } = useCartStore()
@@ -17,7 +17,11 @@ export const Navbar = () => {
 
   const handleAccountClick = () => {
     if (isAuthenticated) {
-      navigate('/dashboard')
+      if (user?.role === 'admin') {
+        navigate('/admin')
+      } else {
+        navigate('/dashboard')
+      }
     } else {
       navigate('/login')
     }

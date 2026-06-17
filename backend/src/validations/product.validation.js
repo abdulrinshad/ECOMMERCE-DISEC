@@ -57,9 +57,9 @@ export const productFieldsSchema = z.object({
   })).optional().default([]),
   
   colors: z.array(z.string().trim().min(1))
-    .transform((val) => [...new Set(val.map(c => c.toUpperCase()))])
     .optional()
-    .default([]),
+    .default([])
+    .transform((val) => [...new Set(val.map(c => c.toUpperCase()))]),
   
   badge: z.string().trim().max(50, 'Badge text cannot exceed 50 characters').optional().default(''),
   

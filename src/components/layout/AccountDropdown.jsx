@@ -34,20 +34,32 @@ export const AccountDropdown = ({ isOpen, onClose }) => {
       </div>
       
       <div className="flex flex-col py-1">
-        <Link
-          to="/dashboard"
-          onClick={onClose}
-          className="px-4 py-2.5 font-body text-[10px] font-semibold tracking-wider text-[#0A0A0A] hover:bg-[#F2EFE9] hover:text-[#1A3C2E] transition-colors uppercase text-left"
-        >
-          My Account
-        </Link>
-        <Link
-          to="/dashboard/orders"
-          onClick={onClose}
-          className="px-4 py-2.5 font-body text-[10px] font-semibold tracking-wider text-[#0A0A0A] hover:bg-[#F2EFE9] hover:text-[#1A3C2E] transition-colors uppercase text-left"
-        >
-          Orders
-        </Link>
+        {user?.role === 'admin' ? (
+          <Link
+            to="/admin"
+            onClick={onClose}
+            className="px-4 py-2.5 font-body text-[10px] font-semibold tracking-wider text-[#0A0A0A] hover:bg-[#F2EFE9] hover:text-[#1A3C2E] transition-colors uppercase text-left"
+          >
+            Admin Panel
+          </Link>
+        ) : (
+          <>
+            <Link
+              to="/dashboard"
+              onClick={onClose}
+              className="px-4 py-2.5 font-body text-[10px] font-semibold tracking-wider text-[#0A0A0A] hover:bg-[#F2EFE9] hover:text-[#1A3C2E] transition-colors uppercase text-left"
+            >
+              My Account
+            </Link>
+            <Link
+              to="/dashboard/orders"
+              onClick={onClose}
+              className="px-4 py-2.5 font-body text-[10px] font-semibold tracking-wider text-[#0A0A0A] hover:bg-[#F2EFE9] hover:text-[#1A3C2E] transition-colors uppercase text-left"
+            >
+              Orders
+            </Link>
+          </>
+        )}
         <button
           type="button"
           onClick={handleSignOut}

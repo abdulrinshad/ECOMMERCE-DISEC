@@ -16,7 +16,7 @@ export const AdminProducts = () => {
   const [search, setSearch] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('')
   const [selectedStatus, setSelectedStatus] = useState('')
-  
+
   // Modals state
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [editingProduct, setEditingProduct] = useState(null)
@@ -109,11 +109,12 @@ export const AdminProducts = () => {
       key: 'status',
       label: 'Status',
       render: (row) => (
-        <span className={`px-2 py-0.5 font-display text-[8px] font-extrabold uppercase tracking-wider border select-none ${
-          row.status === 'published' 
-            ? 'bg-emerald-50 text-emerald-800 border-emerald-200' 
-            : 'bg-yellow-50 text-yellow-800 border-yellow-200'
-        }`}>
+        <span className={`px-2 py-0.5 font-display text-[8px] font-extrabold uppercase tracking-wider border select-none ${row.status === 'active'
+          ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+          : row.status === 'draft'
+            ? 'bg-yellow-50 text-yellow-800 border-yellow-200'
+            : 'bg-gray-100 text-gray-700 border-gray-300'
+          }`}>
           {row.status}
         </span>
       )
@@ -155,7 +156,7 @@ export const AdminProducts = () => {
             CATALOG MANAGEMENT LOGS
           </p>
         </div>
-        
+
         <button
           onClick={() => {
             setEditingProduct(null)
@@ -208,7 +209,8 @@ export const AdminProducts = () => {
           >
             <option value="">ALL STATUSES</option>
             <option value="draft">DRAFT</option>
-            <option value="published">PUBLISHED</option>
+            <option value="active">ACTIVE</option>
+            <option value="archived">ARCHIVED</option>
           </select>
         </div>
       </div>

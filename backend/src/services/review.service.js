@@ -1,7 +1,24 @@
+import mongoose from 'mongoose'
 import { Review } from '../models/review.model.js'
 import { Product } from '../models/product.model.js'
 import { Order } from '../models/order.model.js'
 import { ApiError } from '../utils/ApiResponse.js'
+
+/**
+ * Resolve product identifier (slug or ID) to product ObjectId
+ * @param {string} identifier 
+ * @returns {Promise<mongoose.Types.ObjectId>}
+ */
+const resolveProductObjectId = async (identifier) => {
+  if (mongoose.Types.ObjectId.isValid(identifier)) {
+    return new mongoose.Types.ObjectId(identifier)
+  }
+  const prod = await Product.findOne({ slug: identifier })
+  if (!prod) {
+    throw new ApiError(404, 'Product not found')
+  }
+  return prod._id
+}
 
 /**
  * Recalculate averageRating, reviewCount, and ratingDistribution for a product
@@ -62,9 +79,10 @@ export const calculateProductRatings = async (productId) => {
  */
 export const createReview = async (userId, reviewData) => {
   const { productId, rating, title, comment } = reviewData
+  const resolvedProductId = await resolveProductObjectId(productId)
 
   // 1. Check if user already reviewed this product
-  const existingReview = await Review.findOne({ user: userId, product: productId })
+  const existingReview = await Review.findOne({ user: userId, product: resolvedProductId })
   if (existingReview) {
     throw new ApiError(400, 'You have already submitted a review for this product. Edit your existing review instead.')
   }
@@ -74,7 +92,7 @@ export const createReview = async (userId, reviewData) => {
   const order = await Order.findOne({
     user: userId,
     status: 'delivered',
-    'items.product': productId
+    'items.product': resolvedProductId
   })
 
   if (!order) {
@@ -84,7 +102,7 @@ export const createReview = async (userId, reviewData) => {
   // 3. Create Review
   const review = await Review.create({
     user: userId,
-    product: productId,
+    product: resolvedProductId,
     order: order._id,
     rating,
     title,
@@ -93,7 +111,7 @@ export const createReview = async (userId, reviewData) => {
   })
 
   // 4. Update Product aggregation metrics
-  await calculateProductRatings(productId)
+  await calculateProductRatings(resolvedProductId)
 
   return review
 }
@@ -106,8 +124,9 @@ export const createReview = async (userId, reviewData) => {
  */
 export const getReviews = async (productId, queryOptions = {}) => {
   const { page = 1, limit = 10, sortBy = 'createdAt', sortOrder = 'desc' } = queryOptions
+  const resolvedProductId = await resolveProductObjectId(productId)
 
-  const filter = { product: productId, status: 'approved' }
+  const filter = { product: resolvedProductId, status: 'approved' }
   const sort = { [sortBy]: sortOrder === 'desc' ? -1 : 1 }
   const skip = (page - 1) * limit
 

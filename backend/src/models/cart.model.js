@@ -43,8 +43,7 @@ const cartSchema = new mongoose.Schema(
     user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
-      required: [true, 'User reference is required'],
-      unique: true
+      required: [true, 'User reference is required']
     },
     items: [cartItemSchema],
     cartSummary: {
@@ -65,6 +64,11 @@ const cartSchema = new mongoose.Schema(
   {
     timestamps: true
   }
+)
+
+cartSchema.index(
+  { user: 1, status: 1 },
+  { unique: true, partialFilterExpression: { status: 'active' } }
 )
 
 // Pre-save middleware to recalculate subtotals, item count, and summary grand totals

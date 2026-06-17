@@ -6,7 +6,8 @@ import { useAuth } from '../../context/AuthContext'
 import toast from 'react-hot-toast'
 
 export const ProductCard = ({ product }) => {
-  const { id, name, price, series, badge, images, slug } = product
+  const id = product._id || product.id
+  const { name, price, series, badge, images, slug } = product
   const { accessToken } = useAuth()
   const { items, toggleWishlist } = useWishlistStore()
   const navigate = useNavigate()
@@ -45,7 +46,7 @@ export const ProductCard = ({ product }) => {
 
   return (
     <Link
-      to={`/product/${id}`}
+      to={`/product/${slug || id}`}
       className="group block bg-white border border-[#D8D3CA] overflow-hidden transition-all duration-[280ms] ease-[cubic-bezier(0.4,0,0.2,1)] hover:-translate-y-[6px] hover:shadow-[0_12px_24px_rgba(26,60,46,0.08)]"
     >
       <div className="relative aspect-[3/4] overflow-hidden bg-[#E8E4DC]">

@@ -6,20 +6,7 @@ const orderItemSchema = new mongoose.Schema({
     ref: 'Product',
     required: true
   },
-  productSnapshot: {
-    type: Map,
-    of: mongoose.Schema.Types.Mixed,
-    default: {}
-  },
-  variantId: {
-    type: String,
-    default: ''
-  },
-  sku: {
-    type: String,
-    default: ''
-  },
-  name: {
+  title: {
     type: String,
     required: true
   },
@@ -27,17 +14,20 @@ const orderItemSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
-  price: {
-    type: Number,
-    required: true,
-    min: 0
+  size: {
+    type: String,
+    default: ''
+  },
+  color: {
+    type: String,
+    default: ''
   },
   quantity: {
     type: Number,
     required: true,
     min: 1
   },
-  subtotal: {
+  price: {
     type: Number,
     required: true,
     min: 0
@@ -47,7 +37,7 @@ const orderItemSchema = new mongoose.Schema({
 const trackingHistorySchema = new mongoose.Schema({
   status: {
     type: String,
-    enum: ['pending', 'confirmed', 'processing', 'shipped', 'out_for_delivery', 'delivered', 'cancelled', 'refunded'],
+    enum: ['pending', 'processing', 'shipped', 'delivered', 'cancelled'],
     required: true
   },
   message: {
@@ -75,13 +65,6 @@ const orderSchema = new mongoose.Schema(
       index: true
     },
     items: [orderItemSchema],
-    customer: {
-      email: {
-        type: String,
-        required: true,
-        trim: true
-      }
-    },
     shippingAddress: {
       firstName: { type: String, required: true },
       lastName: { type: String, required: true },
@@ -91,29 +74,46 @@ const orderSchema = new mongoose.Schema(
       postalCode: { type: String, required: true },
       country: { type: String, required: true }
     },
-    pricing: {
-      subtotal: { type: Number, required: true, min: 0 },
-      discount: { type: Number, required: true, min: 0, default: 0 },
-      shippingFee: { type: Number, required: true, min: 0, default: 0 },
-      tax: { type: Number, required: true, min: 0, default: 0 },
-      grandTotal: { type: Number, required: true, min: 0 }
-    },
-    status: {
+    paymentMethod: {
       type: String,
-      enum: ['pending', 'confirmed', 'processing', 'shipped', 'out_for_delivery', 'delivered', 'cancelled', 'refunded'],
-      default: 'pending',
-      index: true
+      enum: ['COD', 'CARD'],
+      required: true
     },
     paymentStatus: {
       type: String,
-      enum: ['pending', 'paid', 'failed', 'refunded'],
+      enum: ['pending', 'paid'],
       default: 'pending',
       index: true
     },
-    trackingHistory: [trackingHistorySchema],
-    estimatedDeliveryDate: {
-      type: Date
+    orderStatus: {
+      type: String,
+      enum: ['pending', 'processing', 'shipped', 'delivered', 'cancelled'],
+      default: 'pending',
+      index: true
     },
+    subtotal: {
+      type: Number,
+      required: true,
+      min: 0
+    },
+    shippingFee: {
+      type: Number,
+      required: true,
+      min: 0,
+      default: 0
+    },
+    tax: {
+      type: Number,
+      required: true,
+      min: 0,
+      default: 0
+    },
+    totalAmount: {
+      type: Number,
+      required: true,
+      min: 0
+    },
+    trackingHistory: [trackingHistorySchema],
     cancelReason: {
       type: String,
       default: ''

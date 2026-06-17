@@ -65,7 +65,7 @@ export const useAdminStore = create((set, get) => ({
       if (filters.category) query.append('category', filters.category)
       if (filters.status) query.append('status', filters.status)
 
-      const res = await fetch(`/api/admin/products?${query.toString()}`, {
+      const res = await fetch(`/api/products?${query.toString()}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       })
       const data = await res.json()
@@ -86,7 +86,7 @@ export const useAdminStore = create((set, get) => ({
   createProduct: async (token, productValues) => {
     set({ isLoading: true, error: null })
     try {
-      const res = await fetch('/api/admin/products', {
+      const res = await fetch('/api/products', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -114,7 +114,7 @@ export const useAdminStore = create((set, get) => ({
   updateProduct: async (token, productId, productValues) => {
     set({ isLoading: true, error: null })
     try {
-      const res = await fetch(`/api/admin/products/${productId}`, {
+      const res = await fetch(`/api/products/${productId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -142,7 +142,7 @@ export const useAdminStore = create((set, get) => ({
   deleteProduct: async (token, productId) => {
     set({ isLoading: true, error: null })
     try {
-      const res = await fetch(`/api/admin/products/${productId}`, {
+      const res = await fetch(`/api/products/${productId}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       })

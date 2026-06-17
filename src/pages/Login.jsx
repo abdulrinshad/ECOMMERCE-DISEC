@@ -16,7 +16,7 @@ export const Login = () => {
   const location = useLocation()
   const revealRef = useScrollReveal()
   const { login } = useAuth()
-  
+
   const [showPassword, setShowPassword] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -52,35 +52,56 @@ export const Login = () => {
 
   const onSubmit = async (data) => {
     setIsSubmitting(true)
+
     try {
-      await login(data.email, data.password)
+      const userData = await login(data.email, data.password)
+
       toast.success('ACCESS INITIALIZED')
-      
-      // Page flash and redirect
+
+      const role = userData?.user?.role
+
+      console.log('LOGIN RESPONSE:', userData)
+      console.log('ROLE:', role)
+
+      const searchParams = new URLSearchParams(location.search)
+      const redirectQuery = searchParams.get('redirect')
+
+      const redirectPath =
+        redirectQuery
+          ? redirectQuery
+          : role === 'admin'
+          ? '/admin'
+          : from
+
       const mainEl = document.querySelector('main')
+
       if (mainEl) {
         gsap.to(mainEl, {
           backgroundColor: '#1A3C2E',
           duration: 0.3,
           onComplete: () => {
-            navigate(from, { replace: true })
+            navigate(redirectPath, { replace: true })
           }
         })
       } else {
-        navigate(from, { replace: true })
+        navigate(redirectPath, { replace: true })
       }
+
     } catch (err) {
       toast.error(err.message || 'Access Denied')
-      // Shake the main container on submission error
+
       const formEl = document.querySelector('form')
+
       if (formEl) {
-        gsap.to(formEl, { x: [-10, 10, -8, 8, -5, 5, 0], duration: 0.4 })
+        gsap.to(formEl, {
+          x: [-10, 10, -8, 8, -5, 5, 0],
+          duration: 0.4
+        })
       }
     } finally {
       setIsSubmitting(false)
     }
   }
-
   return (
     <main className="w-full min-h-screen flex flex-col md:flex-row bg-[#F2EFE9] transition-colors duration-300">
       {/* Left Column: 50% width bleed editorial photo */}
@@ -122,8 +143,8 @@ export const Login = () => {
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-8" noValidate>
             {/* Email Field */}
             <div ref={emailRef} className="space-y-2">
-              <label 
-                htmlFor="email" 
+              <label
+                htmlFor="email"
                 className="font-body text-[9px] font-semibold uppercase tracking-widest text-[#5C5C5C] block"
               >
                 EMAIL IDENTITY
@@ -135,16 +156,15 @@ export const Login = () => {
                 aria-invalid={errors.email ? 'true' : 'false'}
                 aria-describedby={errors.email ? 'email-error' : undefined}
                 {...register('email')}
-                className={`w-full bg-transparent border-b py-2 text-xs font-body tracking-wider placeholder-[#5C5C5C]/40 focus:outline-none uppercase text-[#0A0A0A] transition-colors duration-250 ${
-                  errors.email && touchedFields.email
+                className={`w-full bg-transparent border-b py-2 text-xs font-body tracking-wider placeholder-[#5C5C5C]/40 focus:outline-none uppercase text-[#0A0A0A] transition-colors duration-250 ${errors.email && touchedFields.email
                     ? 'border-[#C8102E] focus:border-[#C8102E]'
                     : 'border-[#D8D3CA] focus:border-[#1A3C2E]'
-                }`}
+                  }`}
                 placeholder="ENTER EMAIL ADDRESS"
               />
               {errors.email && touchedFields.email && (
-                <p 
-                  id="email-error" 
+                <p
+                  id="email-error"
                   className="font-body text-[12px] font-normal text-[#C8102E] tracking-wider uppercase mt-1"
                 >
                   {errors.email.message}
@@ -154,8 +174,8 @@ export const Login = () => {
 
             {/* Password Field */}
             <div ref={passwordRef} className="space-y-2">
-              <label 
-                htmlFor="password" 
+              <label
+                htmlFor="password"
                 className="font-body text-[9px] font-semibold uppercase tracking-widest text-[#5C5C5C] block"
               >
                 SECRET KEY
@@ -168,11 +188,10 @@ export const Login = () => {
                   aria-invalid={errors.password ? 'true' : 'false'}
                   aria-describedby={errors.password ? 'password-error' : undefined}
                   {...register('password')}
-                  className={`w-full bg-transparent border-b py-2 pr-10 text-xs font-body tracking-wider placeholder-[#5C5C5C]/40 focus:outline-none focus:border-[#1A3C2E] text-[#0A0A0A] transition-colors duration-250 ${
-                    errors.password && touchedFields.password
+                  className={`w-full bg-transparent border-b py-2 pr-10 text-xs font-body tracking-wider placeholder-[#5C5C5C]/40 focus:outline-none focus:border-[#1A3C2E] text-[#0A0A0A] transition-colors duration-250 ${errors.password && touchedFields.password
                       ? 'border-[#C8102E] focus:border-[#C8102E]'
                       : 'border-[#D8D3CA] focus:border-[#1A3C2E]'
-                  }`}
+                    }`}
                   placeholder="ENTER PASSWORD"
                 />
                 <button
@@ -185,16 +204,16 @@ export const Login = () => {
                 </button>
               </div>
               {errors.password && touchedFields.password && (
-                <p 
-                  id="password-error" 
+                <p
+                  id="password-error"
                   className="font-body text-[12px] font-normal text-[#C8102E] tracking-wider uppercase mt-1"
                 >
                   {errors.password.message}
                 </p>
               )}
               <div className="flex justify-end mt-2">
-                <Link 
-                  to="/forgot-password" 
+                <Link
+                  to="/forgot-password"
                   className="font-body text-[9px] font-semibold uppercase tracking-widest text-[#5C5C5C] hover:text-[#1A3C2E] transition-colors"
                 >
                   FORGOT PASSWORD?
@@ -223,7 +242,7 @@ export const Login = () => {
                   'INITIALIZE ACCESS'
                 )}
               </Button>
-              
+
               <Link to="/register" className="block w-full">
                 <Button
                   type="button"

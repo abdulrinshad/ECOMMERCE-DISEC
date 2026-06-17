@@ -1,21 +1,35 @@
+import React from 'react'
 import { FiX, FiMinus, FiPlus, FiTrash2 } from 'react-icons/fi'
 import { useCartStore } from '../../store/cartStore'
-import { Link } from 'react-router-dom'
-import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../../context/AuthContext'
+import { Link, useNavigate } from 'react-router-dom'
 import Button from '../ui/Button'
 
 export const CartDrawer = () => {
   const navigate = useNavigate()
+  const { accessToken } = useAuth()
   const {
     cartItems,
+    cartSummary,
     isDrawerOpen,
     closeDrawer,
     updateQuantity,
-    removeItem,
-    getCartTotal
+    removeItem
   } = useCartStore()
 
-  const subtotal = getCartTotal()
+  const subtotal = cartSummary?.subtotal || 0
+
+  const handleDecreaseQuantity = (item) => {
+    updateQuantity(item.id, item.selectedSize, item.selectedColor, item.quantity - 1, accessToken)
+  }
+
+  const handleIncreaseQuantity = (item) => {
+    updateQuantity(item.id, item.selectedSize, item.selectedColor, item.quantity + 1, accessToken)
+  }
+
+  const handleRemoveItem = (item) => {
+    removeItem(item.id, item.selectedSize, item.selectedColor, accessToken)
+  }
 
   return (
     <>
@@ -41,7 +55,7 @@ export const CartDrawer = () => {
           <button
             type="button"
             onClick={closeDrawer}
-            className="text-[#0A0A0A] hover:text-[#5C5C5C] transition-colors p-2"
+            className="text-[#0A0A0A] hover:text-[#5C5C5C] transition-colors p-2 cursor-pointer bg-transparent border-none"
             aria-label="Close Cart"
           >
             <FiX size={20} />
@@ -51,7 +65,7 @@ export const CartDrawer = () => {
         {/* Scrollable Items list */}
         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
           {cartItems.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center text-center space-y-4">
+            <div className="h-full flex flex-col items-center justify-center text-center space-y-4 select-none">
               <p className="font-body text-sm text-[#5C5C5C] uppercase tracking-wider">
                 Cart is empty.
               </p>
@@ -69,7 +83,7 @@ export const CartDrawer = () => {
                 <div className="flex items-start gap-4">
                   {/* Thumbnail */}
                   <img
-                    src={item.images[0]}
+                    src={item.thumbnail || item.images?.[0] || 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?q=80&w=100&auto=format&fit=crop'}
                     alt={item.name}
                     className="w-20 h-24 object-cover object-center bg-gray-100 flex-shrink-0"
                   />
@@ -86,7 +100,7 @@ export const CartDrawer = () => {
                         </span>
                       </div>
                       <p className="font-body text-[10px] uppercase tracking-widest text-[#5C5C5C] mt-1">
-                        SIZE: {item.selectedSize} / COLOR: {item.selectedColor}
+                        SIZE: {item.selectedSize || 'O/S'} / COLOR: {item.selectedColor || 'DEFAULT'}
                       </p>
                     </div>
 
@@ -95,8 +109,8 @@ export const CartDrawer = () => {
                       <div className="flex items-center border border-[#D8D3CA]">
                         <button
                           type="button"
-                          onClick={() => updateQuantity(item.id, item.selectedSize, item.selectedColor, item.quantity - 1)}
-                          className="px-2 py-1 text-[#0A0A0A] hover:bg-gray-100 transition-colors"
+                          onClick={() => handleDecreaseQuantity(item)}
+                          className="px-2 py-1 text-[#0A0A0A] hover:bg-gray-100 transition-colors cursor-pointer border-none bg-transparent"
                           aria-label="Decrease quantity"
                         >
                           <FiMinus size={10} />
@@ -106,8 +120,8 @@ export const CartDrawer = () => {
                         </span>
                         <button
                           type="button"
-                          onClick={() => updateQuantity(item.id, item.selectedSize, item.selectedColor, item.quantity + 1)}
-                          className="px-2 py-1 text-[#0A0A0A] hover:bg-gray-100 transition-colors"
+                          onClick={() => handleIncreaseQuantity(item)}
+                          className="px-2 py-1 text-[#0A0A0A] hover:bg-gray-100 transition-colors cursor-pointer border-none bg-transparent"
                           aria-label="Increase quantity"
                         >
                           <FiPlus size={10} />
@@ -116,8 +130,8 @@ export const CartDrawer = () => {
 
                       <button
                         type="button"
-                        onClick={() => removeItem(item.id, item.selectedSize, item.selectedColor)}
-                        className="text-[#5C5C5C] hover:text-[#0A0A0A] transition-colors p-1"
+                        onClick={() => handleRemoveItem(item)}
+                        className="text-[#5C5C5C] hover:text-[#0A0A0A] transition-colors p-1 cursor-pointer border-none bg-transparent"
                         aria-label="Remove item"
                       >
                         <FiTrash2 size={14} />
@@ -141,20 +155,31 @@ export const CartDrawer = () => {
                 SUBTOTAL
               </span>
               <span className="font-display text-xl font-extrabold text-[#0A0A0A]">
-                ${subtotal.toLocaleString()}
+                ${subtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
               </span>
             </div>
 
-            <Button
-              variant="solid"
-              className="w-full py-4 text-center font-display tracking-widest"
-              onClick={() => {
-                navigate('/checkout')
-                closeDrawer()
-              }}
-            >
-              PROCEED TO CHECKOUT
-            </Button>
+            <div className="grid grid-cols-2 gap-4">
+              <button
+                onClick={() => {
+                  navigate('/cart')
+                  closeDrawer()
+                }}
+                className="w-full bg-transparent hover:bg-[#F2EFE9] text-[#0A0A0A] border border-[#D8D3CA] py-4 text-center font-display text-[10px] font-extrabold uppercase tracking-widest cursor-pointer"
+              >
+                VIEW CART
+              </button>
+              <Button
+                variant="solid"
+                className="w-full py-4 text-center font-display tracking-widest"
+                onClick={() => {
+                  navigate('/checkout')
+                  closeDrawer()
+                }}
+              >
+                CHECKOUT
+              </Button>
+            </div>
             
             <p className="font-body text-[9px] uppercase tracking-widest text-[#5C5C5C] text-center">
               SHIPPING & TAXES CALCULATED AT CHECKOUT

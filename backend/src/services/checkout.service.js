@@ -8,13 +8,13 @@ import { ApiError } from '../utils/ApiResponse.js'
 import { sendOrderConfirmationEmail } from '../utils/sendEmail.js'
 
 /**
- * Process order checkout
+ * Process order checkout / placement
  * @param {string} userId 
  * @param {Object} checkoutData 
  * @returns {Promise<Object>}
  */
 export const processCheckout = async (userId, checkoutData) => {
-  const { email, keepUpdated, deliveryData, shippingMethod, paymentData, promoCode } = checkoutData
+  const { email, keepUpdated, deliveryData, shippingMethod, paymentMethod, paymentData, promoCode } = checkoutData
 
   // 1. Get active cart
   const cart = await Cart.findOne({ user: userId, status: 'active' }).populate('items.product')
@@ -32,8 +32,8 @@ export const processCheckout = async (userId, checkoutData) => {
       throw new ApiError(404, `Product '${item.name}' not found`)
     }
 
-    // Validate product status (must be published/active/in-stock)
-    if (product.status !== 'published') {
+    // Validate product status
+    if (product.status !== 'active') {
       throw new ApiError(400, `Product '${product.name}' is currently unavailable`)
     }
 
@@ -58,19 +58,12 @@ export const processCheckout = async (userId, checkoutData) => {
 
     verifiedItems.push({
       product: product._id,
-      productSnapshot: {
-        name: product.name,
-        price: product.price,
-        description: product.description,
-        thumbnail: product.thumbnail || (product.images && product.images[0]) || ''
-      },
-      variantId: `${product._id}_${item.size || 'default'}_${item.color || 'default'}`,
-      sku: product.sku || '',
-      name: product.name,
+      title: product.name,
       image: product.thumbnail || (product.images && product.images[0]) || '',
-      price: product.price,
+      size: item.size || '',
+      color: item.color || '',
       quantity: item.quantity,
-      subtotal: itemSubtotal
+      price: product.price
     })
   }
 
@@ -109,7 +102,7 @@ export const processCheckout = async (userId, checkoutData) => {
       )
 
       if (!updatedProduct) {
-        throw new ApiError(400, `Insufficient stock for product '${item.name}' during processing`)
+        throw new ApiError(400, `Insufficient stock for product '${item.title}' during processing`)
       }
 
       deductedProducts.push({
@@ -127,15 +120,15 @@ export const processCheckout = async (userId, checkoutData) => {
     throw error
   }
 
-  // 5. Create Order
+  // 5. Determine Payment Status based on Payment Method
+  const paymentStatus = paymentMethod === 'CARD' ? 'paid' : 'pending'
+
+  // 6. Create Order
   const orderNumber = generateOrderNumber()
   const order = await Order.create({
     orderNumber,
     user: userId,
     items: verifiedItems,
-    customer: {
-      email
-    },
     shippingAddress: {
       firstName: deliveryData.firstName,
       lastName: deliveryData.lastName,
@@ -145,45 +138,44 @@ export const processCheckout = async (userId, checkoutData) => {
       postalCode: deliveryData.postalCode,
       country: deliveryData.country
     },
-    pricing: {
-      subtotal: calculatedSubtotal,
-      discount: discountAmount,
-      shippingFee,
-      tax,
-      grandTotal: total
-    },
-    status: 'confirmed',
-    paymentStatus: 'paid', // Simulated payment success
+    paymentMethod,
+    paymentStatus,
+    orderStatus: 'pending',
+    subtotal: calculatedSubtotal,
+    shippingFee,
+    tax,
+    totalAmount: total,
     trackingHistory: [
       {
         status: 'pending',
-        message: 'Order protocol initialized. Acquisition requested.'
-      },
-      {
-        status: 'confirmed',
-        message: 'Payment completed successfully. Order confirmed.'
+        message: paymentMethod === 'CARD' 
+          ? 'Acquisition code registered. Card payment confirmed.' 
+          : 'Acquisition code registered. COD payment pending dispatch.'
       }
-    ],
-    estimatedDeliveryDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000) // 5 days from now
+    ]
   })
 
-  // 6. Convert cart and clear items
+  // 7. Convert cart and create new active cart
   cart.status = 'converted'
-  cart.items = []
   await cart.save()
 
-  // 7. Dispatch Confirmation Email
-  // Run asynchronously without blocking response
+  await Cart.create({
+    user: userId,
+    status: 'active',
+    items: []
+  })
+
+  // 8. Dispatch Confirmation Email (async)
   sendOrderConfirmationEmail(email, deliveryData.firstName, {
     orderNumber: order.orderNumber,
     createdAt: order.createdAt,
     items: order.items,
     amounts: {
-      subtotal: order.pricing.subtotal,
-      discount: order.pricing.discount,
-      shippingFee: order.pricing.shippingFee,
-      tax: order.pricing.tax,
-      total: order.pricing.grandTotal
+      subtotal: order.subtotal,
+      discount: discountAmount,
+      shippingFee: order.shippingFee,
+      tax: order.tax,
+      total: order.totalAmount
     },
     shippingAddress: {
       line1: order.shippingAddress.address1,

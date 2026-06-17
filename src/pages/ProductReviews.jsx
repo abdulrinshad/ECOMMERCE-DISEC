@@ -57,7 +57,8 @@ export const ProductReviews = () => {
 
   // Check verified purchase eligibility for current user
   useEffect(() => {
-    if (accessToken && productId) {
+    if (accessToken && productId && productData) {
+      const dbId = productData._id || productData.id
       setCheckingEligibility(true)
       fetch(`/api/orders?limit=100&status=delivered`, {
         headers: {
@@ -68,7 +69,7 @@ export const ProductReviews = () => {
         .then((data) => {
           if (data.success) {
             const hasPurchased = data.data.orders.some(order => 
-              order.items.some(item => (item.product?._id || item.product) === productId)
+              order.items.some(item => (item.product?._id || item.product) === dbId)
             )
             setIsEligible(hasPurchased)
           }
@@ -76,7 +77,7 @@ export const ProductReviews = () => {
         .catch(console.error)
         .finally(() => setCheckingEligibility(false))
     }
-  }, [accessToken, productId])
+  }, [accessToken, productId, productData])
 
   // GSAP animations
   useEffect(() => {
