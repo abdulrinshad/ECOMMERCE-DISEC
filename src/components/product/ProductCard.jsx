@@ -1,9 +1,47 @@
 import PropTypes from 'prop-types'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import Badge from '../ui/Badge'
+import { useWishlistStore } from '../../store/wishlistStore'
+import { useAuth } from '../../context/AuthContext'
+import toast from 'react-hot-toast'
 
 export const ProductCard = ({ product }) => {
-  const { id, name, price, series, badge, images } = product
+  const { id, name, price, series, badge, images, slug } = product
+  const { accessToken } = useAuth()
+  const { items, toggleWishlist } = useWishlistStore()
+  const navigate = useNavigate()
+
+  const isWishlisted = items.some(item => item.product === id)
+
+  const handleWishlistClick = async (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+
+    if (!accessToken) {
+      toast('Please login to save items', { icon: '🔒' })
+      navigate('/login')
+      return
+    }
+
+    try {
+      const productSnapshot = {
+        name,
+        slug: slug || name.toLowerCase().replace(/ /g, '-'),
+        image: images[0],
+        price,
+        badge: badge || ''
+      }
+      
+      const added = await toggleWishlist(accessToken, id, productSnapshot)
+      if (added) {
+        toast.success('Added to wishlist')
+      } else {
+        toast.success('Removed from wishlist')
+      }
+    } catch (error) {
+      toast.error('Failed to update wishlist')
+    }
+  }
 
   return (
     <Link
@@ -19,12 +57,30 @@ export const ProductCard = ({ product }) => {
           loading="lazy"
         />
 
-        {/* Top-Right Badges */}
+        {/* Top-Left Badges */}
         {badge && (
-          <div className="absolute top-4 right-4 z-10">
+          <div className="absolute top-4 left-4 z-10">
             <Badge>{badge}</Badge>
           </div>
         )}
+
+        {/* Top-Right Wishlist Button */}
+        <button
+          onClick={handleWishlistClick}
+          className="absolute top-4 right-4 z-20 w-8 h-8 bg-white/90 backdrop-blur-sm border border-[#D8D3CA] rounded-full flex items-center justify-center hover:bg-white hover:scale-110 transition-all duration-300 shadow-sm"
+          aria-label={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
+        >
+          <svg 
+            xmlns="http://www.w3.org/2000/svg" 
+            viewBox="0 0 24 24" 
+            fill={isWishlisted ? "#1A3C2E" : "none"}
+            stroke={isWishlisted ? "#1A3C2E" : "#0A0A0A"}
+            strokeWidth="1.5" 
+            className="w-4 h-4 transition-colors"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
+          </svg>
+        </button>
 
         {/* Bottom-Left Price Badge overlay */}
         <div className="absolute bottom-4 left-4 z-10 bg-white px-3 py-1.5 shadow-sm border border-[#D8D3CA]">

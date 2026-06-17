@@ -77,6 +77,23 @@ const userSchema = new mongoose.Schema(
     loginLockUntil: {
       type: Date,
       default: null
+    },
+    resetPasswordOTP: {
+      type: String,
+      default: null,
+      select: false
+    },
+    resetPasswordOTPExpires: {
+      type: Date,
+      default: null
+    },
+    resetPasswordOTPAttempts: {
+      type: Number,
+      default: 0
+    },
+    resetPasswordOTPLockedUntil: {
+      type: Date,
+      default: null
     }
   },
   {

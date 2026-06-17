@@ -11,7 +11,10 @@ import {
   getProfile,
   updateProfile,
   changePassword,
-  checkEmail
+  checkEmail,
+  forgotPassword,
+  verifyResetOTP,
+  resetPassword
 } from '../controllers/auth.controller.js'
 import { protect } from '../middleware/auth.middleware.js'
 import { validate } from '../middleware/validate.js'
@@ -47,6 +50,14 @@ const resendOtpLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 3,
   message: { success: false, message: 'Too many OTP requests. Try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false
+})
+
+const forgotPasswordLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  message: { success: false, message: 'Too many requests. Try again later.' },
   standardHeaders: true,
   legacyHeaders: false
 })
@@ -92,6 +103,38 @@ const resendOTPValidation = [
     .normalizeEmail()
 ]
 
+const forgotPasswordValidation = [
+  body('email')
+    .isEmail().withMessage('Please provide a valid email')
+    .normalizeEmail()
+]
+
+const verifyResetOTPValidation = [
+  body('email')
+    .isEmail().withMessage('Please provide a valid email')
+    .normalizeEmail(),
+  body('otp')
+    .isLength({ min: 6, max: 6 }).withMessage('OTP must be exactly 6 digits')
+    .isNumeric().withMessage('OTP must be numeric')
+]
+
+const resetPasswordValidation = [
+  body('email')
+    .isEmail().withMessage('Please provide a valid email')
+    .normalizeEmail(),
+  body('otp')
+    .isLength({ min: 6, max: 6 }).withMessage('OTP must be exactly 6 digits')
+    .isNumeric().withMessage('OTP must be numeric'),
+  body('password')
+    .isLength({ min: 8 }).withMessage('Password must be at least 8 characters long')
+    .matches(/[A-Z]/).withMessage('Password must contain at least one uppercase letter')
+    .matches(/[a-z]/).withMessage('Password must contain at least one lowercase letter')
+    .matches(/[0-9]/).withMessage('Password must contain at least one number')
+    .matches(/[^A-Za-z0-9]/).withMessage('Password must contain at least one special character'),
+  body('confirmPassword')
+    .notEmpty().withMessage('Confirm password is required')
+]
+
 const updateProfileValidation = [
   body('fullName')
     .optional()
@@ -123,6 +166,9 @@ router.post('/register', registerLimiter, registerValidation, validate, register
 router.post('/verify-otp', verifyOtpLimiter, verifyOTPValidation, validate, verifyOTP)
 router.post('/resend-otp', resendOtpLimiter, resendOTPValidation, validate, resendOTP)
 router.post('/login', loginLimiter, loginValidation, validate, login)
+router.post('/forgot-password', forgotPasswordLimiter, forgotPasswordValidation, validate, forgotPassword)
+router.post('/verify-reset-otp', verifyOtpLimiter, verifyResetOTPValidation, validate, verifyResetOTP)
+router.post('/reset-password', loginLimiter, resetPasswordValidation, validate, resetPassword)
 router.post('/refresh', refresh)
 router.post('/logout', protect, logout)
 router.get('/check-email', checkEmail)

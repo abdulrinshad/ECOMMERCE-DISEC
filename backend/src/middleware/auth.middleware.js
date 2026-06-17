@@ -49,3 +49,5 @@ export const restrictTo = (...roles) => {
     next()
   }
 }
+
+export const authorize = restrictTo

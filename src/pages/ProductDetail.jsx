@@ -1,8 +1,12 @@
-import { useState, useMemo } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useState, useMemo, useEffect } from 'react'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import { products } from '../data/products'
 import { useCartStore } from '../store/cartStore'
+import { useWishlistStore } from '../store/wishlistStore'
+import { useAuth } from '../context/AuthContext'
+import StarRating from '../components/reviews/StarRating'
 import SizePicker from '../components/ui/SizePicker'
+import QuantitySelector from '../components/ui/QuantitySelector'
 import Button from '../components/ui/Button'
 import Badge from '../components/ui/Badge'
 import toast from 'react-hot-toast'
@@ -11,17 +15,39 @@ import { useScrollReveal } from '../hooks/useScrollReveal'
 
 export const ProductDetail = () => {
   const { id } = useParams()
+  const navigate = useNavigate()
   const { addItem, openDrawer } = useCartStore()
+  const { accessToken } = useAuth()
+  const { items: wishlistItems, toggleWishlist } = useWishlistStore()
   
   const revealRef = useScrollReveal()
+
+  const [liveProduct, setLiveProduct] = useState(null)
 
   // Find current product
   const product = useMemo(() => {
     return products.find((p) => p.id === id) || products[0]
   }, [id])
 
+  // Fetch dynamic ratings/reviews summary from database
+  useEffect(() => {
+    if (id) {
+      fetch(`/api/products/${id}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success) {
+            setLiveProduct(data.data)
+          }
+        })
+        .catch(console.error)
+    }
+  }, [id])
+
   const [selectedSize, setSelectedSize] = useState(product.sizes[0] || 'M')
   const [selectedColor, setSelectedColor] = useState(product.colors[0] || 'CARBON BLACK')
+  const [quantity, setQuantity] = useState(1)
+
+  const isWishlisted = wishlistItems.some(item => item.product === id)
 
   // Get 3 related items (different from current)
   const relatedPieces = useMemo(() => {
@@ -29,7 +55,7 @@ export const ProductDetail = () => {
   }, [product.id])
 
   const handleAddToBag = () => {
-    addItem(product, selectedSize, selectedColor)
+    addItem(product, selectedSize, selectedColor, quantity)
     // Custom toast notification
     toast.success(`${product.name} [SIZE ${selectedSize}] ADDED TO BAG`, {
       style: {
@@ -52,6 +78,32 @@ export const ProductDetail = () => {
     setTimeout(() => {
       openDrawer()
     }, 450)
+  }
+
+  const handleWishlistToggle = async () => {
+    if (!accessToken) {
+      toast('Please login to save items', { icon: '🔒' })
+      return
+    }
+
+    try {
+      const productSnapshot = {
+        name: product.name,
+        slug: product.slug || product.name.toLowerCase().replace(/ /g, '-'),
+        image: product.images[0],
+        price: product.price,
+        badge: product.badge || ''
+      }
+      
+      const added = await toggleWishlist(accessToken, product.id, productSnapshot)
+      if (added) {
+        toast.success('Added to wishlist')
+      } else {
+        toast.success('Removed from wishlist')
+      }
+    } catch (error) {
+      toast.error('Failed to update wishlist')
+    }
   }
 
   return (
@@ -94,6 +146,14 @@ export const ProductDetail = () => {
             <h1 className="font-display text-3xl md:text-4xl font-extrabold uppercase tracking-tight text-[#0A0A0A] mt-2 leading-tight">
               {product.name}
             </h1>
+            {((liveProduct?.reviewCount || product.reviewCount || 0) > 0) && (
+              <div className="flex items-center gap-2 mt-2">
+                <StarRating rating={Math.round(liveProduct?.averageRating || product.averageRating || 0)} size={12} />
+                <span className="font-body text-[10px] uppercase tracking-widest text-[#7C766C]">
+                  {(liveProduct?.averageRating || product.averageRating || 0).toFixed(1)} ({(liveProduct?.reviewCount || product.reviewCount || 0)} {(liveProduct?.reviewCount || product.reviewCount || 0) === 1 ? 'review' : 'reviews'})
+                </span>
+              </div>
+            )}
           </div>
 
           <p className="font-body text-sm font-light text-text-secondary leading-relaxed tracking-wide">
@@ -150,14 +210,43 @@ export const ProductDetail = () => {
               </div>
             </div>
 
-            <Button
-              variant="solid"
-              onClick={handleAddToBag}
-              shouldFlash={true}
-              className="w-full py-4 font-display text-sm tracking-[0.2em]"
-            >
-              ADD TO BAG
-            </Button>
+            <div className="flex flex-col gap-3">
+              <span className="font-body text-[10px] font-semibold uppercase tracking-widest text-text-secondary">
+                QUANTITY
+              </span>
+              <QuantitySelector 
+                quantity={quantity} 
+                setQuantity={setQuantity} 
+                maxStock={product.stock || 10} 
+              />
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-4">
+              <Button
+                variant="solid"
+                onClick={handleAddToBag}
+                shouldFlash={true}
+                className="flex-grow py-4 font-display text-sm tracking-[0.2em]"
+              >
+                ADD TO BAG
+              </Button>
+              <button
+                onClick={handleWishlistToggle}
+                className="flex items-center justify-center gap-3 px-8 py-4 border border-[#0A0A0A] bg-transparent text-[#0A0A0A] font-display text-sm tracking-[0.2em] hover:bg-[#EAE6DF] transition-colors duration-300"
+              >
+                <svg 
+                  xmlns="http://www.w3.org/2000/svg" 
+                  viewBox="0 0 24 24" 
+                  fill={isWishlisted ? "#1A3C2E" : "none"}
+                  stroke={isWishlisted ? "#1A3C2E" : "#0A0A0A"}
+                  strokeWidth="1.5" 
+                  className="w-5 h-5 transition-colors"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
+                </svg>
+                WISHLIST
+              </button>
+            </div>
 
             <p className="font-body text-[10px] uppercase tracking-widest text-[#5C5C5C] text-center">
               Limited Edition Drop / {product.limitedCount} Pieces Only
@@ -226,6 +315,46 @@ export const ProductDetail = () => {
             </div>
           ))}
         </div>
+      </section>
+
+      {/* Reviews Summary Section */}
+      <section className="mt-24 pt-20 border-t border-[#D8D3CA] space-y-8 max-w-3xl mx-auto text-center">
+        <h2 className="font-display text-lg font-extrabold uppercase tracking-widest text-[#0A0A0A]">
+          CUSTOMER FEEDBACK
+        </h2>
+        
+        {((liveProduct?.reviewCount || product.reviewCount || 0) > 0) ? (
+          <div className="space-y-6">
+            <div className="flex flex-col items-center justify-center space-y-2">
+              <span className="font-display text-4xl font-black text-[#0A0A0A]">
+                {(liveProduct?.averageRating || product.averageRating || 0).toFixed(1)} / 5.0
+              </span>
+              <StarRating rating={Math.round(liveProduct?.averageRating || product.averageRating || 0)} size={16} />
+              <span className="font-body text-xs text-[#7C766C] uppercase tracking-wider">
+                Based on {(liveProduct?.reviewCount || product.reviewCount || 0)} customer responses
+              </span>
+            </div>
+            
+            <button
+              onClick={() => navigate(`/product/${product.id}/reviews`)}
+              className="bg-[#1A3C2E] hover:bg-[#2D6B4F] text-white px-8 py-4 font-display text-[10px] font-extrabold uppercase tracking-widest transition-transform active:scale-[0.98] cursor-pointer"
+            >
+              VIEW ALL REVIEWS & WRITE A REVIEW
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <p className="font-body text-xs text-[#7C766C] uppercase tracking-wider">
+              No reviews yet. Be the first to share your experience with this design piece.
+            </p>
+            <button
+              onClick={() => navigate(`/product/${product.id}/reviews`)}
+              className="bg-[#1A3C2E] hover:bg-[#2D6B4F] text-white px-8 py-4 font-display text-[10px] font-extrabold uppercase tracking-widest transition-transform active:scale-[0.98] cursor-pointer"
+            >
+              WRITE THE FIRST REVIEW
+            </button>
+          </div>
+        )}
       </section>
     </main>
   )

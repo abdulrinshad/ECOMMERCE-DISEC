@@ -18,6 +18,24 @@ import Dashboard from './pages/Dashboard'
 import About from './pages/About'
 import Checkout from './pages/Checkout'
 import VerifyEmail from './pages/VerifyEmail'
+import ForgotPassword from './pages/ForgotPassword'
+import VerifyResetOTP from './pages/VerifyResetOTP'
+import ResetPassword from './pages/ResetPassword'
+import WishlistPage from './pages/WishlistPage'
+import OrdersPage from './pages/OrdersPage'
+import OrderDetails from './pages/OrderDetails'
+import ProductReviews from './pages/ProductReviews'
+
+// Admin Panel Modules
+import AdminLayout from './admin/layouts/AdminLayout'
+import AdminDashboard from './admin/pages/AdminDashboard'
+import AdminProducts from './admin/pages/AdminProducts'
+import AdminOrders from './admin/pages/AdminOrders'
+import AdminCustomers from './admin/pages/AdminCustomers'
+import AdminReviews from './admin/pages/AdminReviews'
+import AdminInventory from './admin/pages/AdminInventory'
+import AdminSettings from './admin/pages/AdminSettings'
+import AdminAuditLogs from './admin/pages/AdminAuditLogs'
 
 // Auth Protection
 import ProtectedRoute from './components/auth/ProtectedRoute'
@@ -67,14 +85,16 @@ const PageTransition = ({ children }) => {
 
 function AppContent() {
   const { isLoading } = useAuth()
+  const location = useLocation()
+  const isAdminPath = location.pathname.startsWith('/admin')
 
   if (isLoading) {
     return <LoadingScreen />
   }
 
   return (
-    <div className="relative min-h-screen bg-[#F2EFE9] text-[#0A0A0A] flex flex-col justify-between">
-      <Navbar />
+    <div className={isAdminPath ? "relative min-h-screen" : "relative min-h-screen bg-[#F2EFE9] text-[#0A0A0A] flex flex-col justify-between"}>
+      {!isAdminPath && <Navbar />}
       
       {/* Main Content Area with transitions */}
       <div className="flex-grow">
@@ -113,6 +133,14 @@ function AppContent() {
             }
           />
           <Route
+            path="/product/:productId/reviews"
+            element={
+              <PageTransition>
+                <ProductReviews />
+              </PageTransition>
+            }
+          />
+          <Route
             path="/login"
             element={
               <PageTransition>
@@ -136,6 +164,30 @@ function AppContent() {
               </PageTransition>
             }
           />
+          <Route
+            path="/forgot-password"
+            element={
+              <PageTransition>
+                <ForgotPassword />
+              </PageTransition>
+            }
+          />
+          <Route
+            path="/verify-reset-otp"
+            element={
+              <PageTransition>
+                <VerifyResetOTP />
+              </PageTransition>
+            }
+          />
+          <Route
+            path="/reset-password"
+            element={
+              <PageTransition>
+                <ResetPassword />
+              </PageTransition>
+            }
+          />
 
           {/* Protected Routes */}
           <Route element={<ProtectedRoute />}>
@@ -151,7 +203,23 @@ function AppContent() {
               path="/dashboard/orders"
               element={
                 <PageTransition>
-                  <Dashboard />
+                  <OrdersPage />
+                </PageTransition>
+              }
+            />
+            <Route
+              path="/orders"
+              element={
+                <PageTransition>
+                  <OrdersPage />
+                </PageTransition>
+              }
+            />
+            <Route
+              path="/orders/:id"
+              element={
+                <PageTransition>
+                  <OrderDetails />
                 </PageTransition>
               }
             />
@@ -172,6 +240,14 @@ function AppContent() {
               }
             />
             <Route
+              path="/wishlist"
+              element={
+                <PageTransition>
+                  <WishlistPage />
+                </PageTransition>
+              }
+            />
+            <Route
               path="/checkout"
               element={
                 <PageTransition>
@@ -179,11 +255,22 @@ function AppContent() {
                 </PageTransition>
               }
             />
+            {/* Nested Admin Routes */}
+            <Route path="/admin" element={<AdminLayout />}>
+              <Route index element={<AdminDashboard />} />
+              <Route path="products" element={<AdminProducts />} />
+              <Route path="orders" element={<AdminOrders />} />
+              <Route path="customers" element={<AdminCustomers />} />
+              <Route path="reviews" element={<AdminReviews />} />
+              <Route path="inventory" element={<AdminInventory />} />
+              <Route path="settings" element={<AdminSettings />} />
+              <Route path="audit-logs" element={<AdminAuditLogs />} />
+            </Route>
           </Route>
         </Routes>
       </div>
 
-      <Footer />
+      {!isAdminPath && <Footer />}
       
       {/* Floating Cart Drawer overlay */}
       <CartDrawer />

@@ -192,6 +192,14 @@ export const Login = () => {
                   {errors.password.message}
                 </p>
               )}
+              <div className="flex justify-end mt-2">
+                <Link 
+                  to="/forgot-password" 
+                  className="font-body text-[9px] font-semibold uppercase tracking-widest text-[#5C5C5C] hover:text-[#1A3C2E] transition-colors"
+                >
+                  FORGOT PASSWORD?
+                </Link>
+              </div>
             </div>
 
             {/* Actions */}

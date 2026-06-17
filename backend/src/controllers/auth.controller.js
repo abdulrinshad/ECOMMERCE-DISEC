@@ -8,7 +8,7 @@ import {
   setRefreshTokenCookie
 } from '../utils/generateTokens.js'
 import { generateOTP, hashOTP, compareOTP } from '../utils/otp.js'
-import { sendOTPEmail } from '../utils/sendEmail.js'
+import { sendOTPEmail, sendResetPasswordOTPEmail } from '../utils/sendEmail.js'
 
 /**
  * Register User
@@ -514,6 +514,156 @@ export const checkEmail = async (req, res, next) => {
     const user = await User.findOne({ email: email.toLowerCase().trim() })
     return res.status(200).json(
       new ApiResponse(200, { exists: !!user }, 'Email check completed')
+    )
+  } catch (error) {
+    next(error)
+  }
+}
+
+/**
+ * Forgot Password
+ * POST /api/auth/forgot-password
+ */
+export const forgotPassword = async (req, res, next) => {
+  try {
+    const { email } = req.body
+    if (!email) {
+      return next(new ApiError(400, 'Email is required'))
+    }
+
+    const normalizedEmail = email.toLowerCase().trim()
+    const user = await User.findOne({ email: normalizedEmail })
+
+    const successResponse = new ApiResponse(
+      200,
+      null,
+      'If an account exists, a verification code has been sent.'
+    )
+
+    if (!user) {
+      return res.status(200).json(successResponse)
+    }
+
+    const plainOtp = generateOTP()
+    const hashed = await hashOTP(plainOtp)
+
+    user.resetPasswordOTP = hashed
+    user.resetPasswordOTPExpires = new Date(Date.now() + 10 * 60 * 1000)
+    user.resetPasswordOTPAttempts = 0
+    user.resetPasswordOTPLockedUntil = null
+    await user.save()
+
+    sendResetPasswordOTPEmail(user.email, user.fullName, plainOtp).catch((err) => {
+      console.error('Failed to send reset password OTP email:', err)
+    })
+
+    return res.status(200).json(successResponse)
+  } catch (error) {
+    next(error)
+  }
+}
+
+/**
+ * Verify Reset OTP
+ * POST /api/auth/verify-reset-otp
+ */
+export const verifyResetOTP = async (req, res, next) => {
+  try {
+    const { email, otp } = req.body
+    if (!email || !otp) {
+      return next(new ApiError(400, 'Email and OTP are required'))
+    }
+
+    const normalizedEmail = email.toLowerCase().trim()
+    const user = await User.findOne({ email: normalizedEmail }).select('+resetPasswordOTP')
+
+    if (!user) {
+      return next(new ApiError(400, 'Invalid or expired verification code'))
+    }
+
+    if (user.resetPasswordOTPLockedUntil && user.resetPasswordOTPLockedUntil > Date.now()) {
+      const remainingMinutes = Math.ceil((user.resetPasswordOTPLockedUntil - Date.now()) / (60 * 1000))
+      return next(new ApiError(429, `Too many attempts. Try again in ${remainingMinutes} minutes`))
+    }
+
+    if (!user.resetPasswordOTPExpires || Date.now() > user.resetPasswordOTPExpires) {
+      return next(new ApiError(400, 'Verification code expired. Please request a new one'))
+    }
+
+    const isMatch = await compareOTP(otp, user.resetPasswordOTP)
+    if (!isMatch) {
+      user.resetPasswordOTPAttempts += 1
+      if (user.resetPasswordOTPAttempts >= 5) {
+        user.resetPasswordOTPLockedUntil = new Date(Date.now() + 15 * 60 * 1000)
+        user.resetPasswordOTPAttempts = 0
+      }
+      await user.save()
+      return next(new ApiError(400, 'Invalid or expired verification code'))
+    }
+
+    user.resetPasswordOTPAttempts = 0
+    await user.save()
+
+    return res.status(200).json(
+      new ApiResponse(200, null, 'Verification successful')
+    )
+  } catch (error) {
+    next(error)
+  }
+}
+
+/**
+ * Reset Password
+ * POST /api/auth/reset-password
+ */
+export const resetPassword = async (req, res, next) => {
+  try {
+    const { email, otp, password, confirmPassword } = req.body
+    if (!email || !otp || !password || !confirmPassword) {
+      return next(new ApiError(400, 'All fields are required'))
+    }
+
+    if (password !== confirmPassword) {
+      return next(new ApiError(400, 'Passwords do not match'))
+    }
+
+    const normalizedEmail = email.toLowerCase().trim()
+    const user = await User.findOne({ email: normalizedEmail }).select('+resetPasswordOTP')
+
+    if (!user) {
+      return next(new ApiError(400, 'Invalid or expired verification code'))
+    }
+
+    if (user.resetPasswordOTPLockedUntil && user.resetPasswordOTPLockedUntil > Date.now()) {
+      const remainingMinutes = Math.ceil((user.resetPasswordOTPLockedUntil - Date.now()) / (60 * 1000))
+      return next(new ApiError(429, `Too many attempts. Try again in ${remainingMinutes} minutes`))
+    }
+
+    if (!user.resetPasswordOTPExpires || Date.now() > user.resetPasswordOTPExpires) {
+      return next(new ApiError(400, 'Verification code expired. Please request a new one'))
+    }
+
+    const isMatch = await compareOTP(otp, user.resetPasswordOTP)
+    if (!isMatch) {
+      return next(new ApiError(400, 'Invalid or expired verification code'))
+    }
+
+    user.password = password
+    user.resetPasswordOTP = null
+    user.resetPasswordOTPExpires = null
+    user.resetPasswordOTPAttempts = 0
+    user.resetPasswordOTPLockedUntil = null
+    user.refreshToken = null
+    await user.save()
+
+    res.clearCookie('refreshToken', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict'
+    })
+
+    return res.status(200).json(
+      new ApiResponse(200, null, 'Password reset successful')
     )
   } catch (error) {
     next(error)

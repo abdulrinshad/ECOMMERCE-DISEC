@@ -167,6 +167,66 @@ export const AuthProvider = ({ children }) => {
     }
   }
 
+  const forgotPassword = async (email) => {
+    dispatch({ type: 'SET_LOADING', payload: true })
+    try {
+      const res = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      })
+      const responseData = await res.json()
+      dispatch({ type: 'SET_LOADING', payload: false })
+      if (!res.ok) {
+        throw new Error(responseData.message || 'Failed to request reset')
+      }
+      return responseData
+    } catch (error) {
+      dispatch({ type: 'SET_LOADING', payload: false })
+      throw error
+    }
+  }
+
+  const verifyResetOTP = async (email, otp) => {
+    dispatch({ type: 'SET_LOADING', payload: true })
+    try {
+      const res = await fetch('/api/auth/verify-reset-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, otp })
+      })
+      const responseData = await res.json()
+      dispatch({ type: 'SET_LOADING', payload: false })
+      if (!res.ok) {
+        throw new Error(responseData.message || 'Verification failed')
+      }
+      return responseData
+    } catch (error) {
+      dispatch({ type: 'SET_LOADING', payload: false })
+      throw error
+    }
+  }
+
+  const resetPassword = async (email, otp, password, confirmPassword) => {
+    dispatch({ type: 'SET_LOADING', payload: true })
+    try {
+      const res = await fetch('/api/auth/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, otp, password, confirmPassword })
+      })
+      const responseData = await res.json()
+      dispatch({ type: 'SET_LOADING', payload: false })
+      if (!res.ok) {
+        throw new Error(responseData.message || 'Password reset failed')
+      }
+      return responseData
+    } catch (error) {
+      dispatch({ type: 'SET_LOADING', payload: false })
+      throw error
+    }
+  }
+
   const logout = async () => {
     dispatch({ type: 'SET_LOADING', payload: true })
     try {
@@ -196,7 +256,7 @@ export const AuthProvider = ({ children }) => {
   }, [])
 
   return (
-    <AuthContext.Provider value={{ ...state, login, register, verifyOTP, resendOTP, logout, checkAuth, checkEmailExists }}>
+    <AuthContext.Provider value={{ ...state, login, register, verifyOTP, resendOTP, logout, checkAuth, checkEmailExists, forgotPassword, verifyResetOTP, resetPassword }}>
       {children}
     </AuthContext.Provider>
   )

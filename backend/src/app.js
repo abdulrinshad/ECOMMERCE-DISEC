@@ -5,6 +5,13 @@ import cookieParser from 'cookie-parser'
 import morgan from 'morgan'
 import rateLimit from 'express-rate-limit'
 import authRouter from './routes/auth.routes.js'
+import productRouter from './routes/product.routes.js'
+import cartRouter from './routes/cart.routes.js'
+import wishlistRouter from './routes/wishlist.routes.js'
+import checkoutRouter from './routes/checkout.routes.js'
+import { orderRouter } from './routes/order.routes.js'
+import adminRouter from './routes/admin.routes.js'
+import reviewRouter from './routes/review.routes.js'
 import errorHandler from './middleware/errorHandler.js'
 import { ApiError } from './utils/ApiResponse.js'
 
@@ -50,6 +57,27 @@ app.use('/api/auth', authLimiter)
 
 // 8. Auth Router mounting
 app.use('/api/auth', authRouter)
+
+// Product Router mounting
+app.use('/api/products', productRouter)
+
+// Cart Router mounting
+app.use('/api/cart', cartRouter)
+
+// Wishlist Router mounting
+app.use('/api/wishlist', wishlistRouter)
+
+// Checkout Router mounting
+app.use('/api/checkout', checkoutRouter)
+
+// Order Router mounting
+app.use('/api/orders', orderRouter)
+
+// Admin Router mounting
+app.use('/api/admin', adminRouter)
+
+// Reviews Router mounting
+app.use('/api', reviewRouter)
 
 // 9. 404 handler for unknown routes
 app.all('*', (req, res, next) => {

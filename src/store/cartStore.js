@@ -8,7 +8,7 @@ export const useCartStore = create((set, get) => ({
   closeDrawer: () => set({ isDrawerOpen: false }),
   toggleDrawer: () => set((state) => ({ isDrawerOpen: !state.isDrawerOpen })),
   
-  addItem: (product, size, color) => {
+  addItem: (product, size, color, addedQuantity = 1) => {
     set((state) => {
       // Find if item with same ID, size, and color already exists
       const existingItemIndex = state.cartItems.findIndex(
@@ -21,7 +21,7 @@ export const useCartStore = create((set, get) => ({
         // Increment quantity
         newCartItems[existingItemIndex] = {
           ...newCartItems[existingItemIndex],
-          quantity: newCartItems[existingItemIndex].quantity + 1
+          quantity: newCartItems[existingItemIndex].quantity + addedQuantity
         }
       } else {
         // Add new item
@@ -29,7 +29,7 @@ export const useCartStore = create((set, get) => ({
           ...product,
           selectedSize: size,
           selectedColor: color,
-          quantity: 1
+          quantity: addedQuantity
         })
       }
       

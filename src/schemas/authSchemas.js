@@ -31,3 +31,20 @@ export const otpSchema = z.object({
   otp: z.string().length(6, "Enter all 6 digits").regex(/^\d+$/, "Numbers only")
 })
 
+export const forgotPasswordSchema = z.object({
+  email: z.string().trim().min(1, 'Email is required').email('Enter a valid email address')
+})
+
+export const resetPasswordSchema = z.object({
+  password: z.string()
+    .min(8, "Must be 8+ characters")
+    .regex(/[A-Z]/, "Must contain 1 uppercase letter")
+    .regex(/[a-z]/, "Must contain 1 lowercase letter")
+    .regex(/[0-9]/, "Must contain 1 number")
+    .regex(/[^A-Za-z0-9]/, "Must contain 1 special character"),
+  confirmPassword: z.string().min(1, 'Please confirm your secret key')
+}).refine((data) => data.password === data.confirmPassword, {
+  message: 'Keys do not match',
+  path: ['confirmPassword']
+})
+
